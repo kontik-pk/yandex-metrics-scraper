@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -50,7 +51,7 @@ func SaveMetric(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		m.metrics[url[2]] = metric{value, url[2]}
+		m.metrics[url[3]] = metric{value, url[2]}
 	default:
 		w.WriteHeader(http.StatusNotImplemented)
 		return
@@ -60,4 +61,6 @@ func SaveMetric(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "text/plain; charset=utf-8")
 	w.Header().Set("content-length", strconv.Itoa(len(url[3])))
 	w.WriteHeader(http.StatusOK)
+	fmt.Println(m.metrics)
+	fmt.Println(r.URL)
 }
