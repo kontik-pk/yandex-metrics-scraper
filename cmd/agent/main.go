@@ -14,7 +14,7 @@ import (
 var m = domain.MemStorage{Metrics: map[string]domain.Metric{}}
 
 func main() {
-	metricsCollector := collector.New(m)
+	metricsCollector := collector.New(&m)
 
 	ctx := context.Background()
 
@@ -43,7 +43,7 @@ func main() {
 }
 
 type Icollector interface {
-	Collect(metrics runtime.MemStats)
+	Collect(metrics *runtime.MemStats)
 }
 
 func performCollect(ctx context.Context, ticker *time.Ticker, metricsCollector Icollector) error {
@@ -54,7 +54,7 @@ func performCollect(ctx context.Context, ticker *time.Ticker, metricsCollector I
 		case <-ticker.C:
 			metrics := runtime.MemStats{}
 			runtime.ReadMemStats(&metrics)
-			metricsCollector.Collect(metrics)
+			metricsCollector.Collect(&metrics)
 		}
 	}
 }
