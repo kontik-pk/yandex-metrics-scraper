@@ -8,3 +8,5 @@ type Metric struct {
 type MemStorage struct {
 	Metrics map[string]Metric
 }
+
+var MetricsStorage = MemStorage{Metrics: make(map[string]Metric)}

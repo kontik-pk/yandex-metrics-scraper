@@ -11,19 +11,14 @@ import (
 	"time"
 )
 
-var m = domain.MemStorage{Metrics: map[string]domain.Metric{}}
-
 func main() {
-	metricsCollector := collector.New(&m)
+	metricsCollector := collector.New(&domain.MetricsStorage)
 
 	ctx := context.Background()
 
-	mtick := time.NewTicker(time.Second * 2)
-	defer mtick.Stop()
-
-	errs, ctx := errgroup.WithContext(ctx)
+	errs, _ := errgroup.WithContext(ctx)
 	errs.Go(func() error {
-		if err := performCollect(ctx, mtick, metricsCollector); err != nil {
+		if err := performCollect(metricsCollector); err != nil {
 			panic(err)
 		}
 		return nil
@@ -33,7 +28,7 @@ func main() {
 	client := resty.New()
 	defer stick.Stop()
 	errs.Go(func() error {
-		if err := Send(ctx, stick, client); err != nil {
+		if err := Send(client); err != nil {
 			panic(err)
 		}
 		return nil
@@ -46,45 +41,35 @@ type Icollector interface {
 	Collect(metrics *runtime.MemStats)
 }
 
-func performCollect(ctx context.Context, ticker *time.Ticker, metricsCollector Icollector) error {
+func performCollect(metricsCollector Icollector) error {
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			metrics := runtime.MemStats{}
-			runtime.ReadMemStats(&metrics)
-			metricsCollector.Collect(&metrics)
-		}
+		metrics := runtime.MemStats{}
+		runtime.ReadMemStats(&metrics)
+		metricsCollector.Collect(&metrics)
+		time.Sleep(time.Second * 2)
 	}
 }
 
-func Send(ctx context.Context, ticker *time.Ticker, client *resty.Client) error {
+func Send(client *resty.Client) error {
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			for n, i := range m.Metrics {
-				switch i.Value.(type) {
-				case uint, uint64:
-					resp, err := client.R().
-						SetHeader("Content-Type", "text/plain").
-						Post(fmt.Sprintf("http://localhost:8080/update/%s/%s/%d", i.MType, n, i.Value))
-					if err != nil {
-						return err
-					}
-					fmt.Println(resp.Status())
-				case float64:
-					resp, err := client.R().
-						SetHeader("Content-Type", "text/plain").
-						Post(fmt.Sprintf("http://localhost:8080/update/%s/%s/%f", i.MType, n, i.Value))
-					if err != nil {
-						return err
-					}
-					fmt.Println(resp.Status())
+		for n, i := range domain.MetricsStorage.Metrics {
+			switch i.Value.(type) {
+			case uint, uint64, int, int64:
+				_, err := client.R().
+					SetHeader("Content-Type", "text/plain").
+					Post(fmt.Sprintf("http://localhost:8080/update/%s/%s/%d", i.MType, n, i.Value))
+				if err != nil {
+					return err
+				}
+			case float64:
+				_, err := client.R().
+					SetHeader("Content-Type", "text/plain").
+					Post(fmt.Sprintf("http://localhost:8080/update/%s/%s/%f", i.MType, n, i.Value))
+				if err != nil {
+					return err
 				}
 			}
 		}
+		time.Sleep(time.Second * 10)
 	}
 }
