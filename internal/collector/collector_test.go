@@ -1,38 +1,43 @@
 package collector
 
 import (
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/domain"
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"runtime"
+	"strconv"
 	"testing"
 )
 
 func TestCollector_Collect(t *testing.T) {
 	testCases := []struct {
 		name     string
-		storage  domain.MemStorage
+		storage  collector
 		metric   runtime.MemStats
-		expected domain.MemStorage
+		expected memStorage
 	}{
 		{
 			name:    "case0",
-			storage: domain.MemStorage{Metrics: map[string]domain.Metric{}},
+			storage: collector{storage: &memStorage{gauges: map[string]string{}, counters: map[string]int{}}},
 			metric:  runtime.MemStats{Alloc: 1, Sys: 1, GCCPUFraction: 5.543},
-			expected: domain.MemStorage{Metrics: map[string]domain.Metric{
-				"Alloc":         {MType: "gauge", Value: uint64(1)},
-				"Sys":           {MType: "gauge", Value: uint64(1)},
-				"GCCPUFraction": {MType: "gauge", Value: 5.543},
-			}},
+			expected: memStorage{
+				gauges: map[string]string{
+					"Alloc":         "1",
+					"Sys":           "1",
+					"GCCPUFraction": "5.543",
+				},
+			},
 		},
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			metric := runtime.MemStats{Alloc: 1, Sys: 1, GCCPUFraction: 5.543}
-			metricsCollector := New(&tt.storage)
-			metricsCollector.Collect(&metric)
-			assert.Equal(t, tt.expected.Metrics["Alloc"], tt.storage.Metrics["Alloc"])
-			assert.Equal(t, tt.expected.Metrics["Sys"], tt.storage.Metrics["Sys"])
-			assert.Equal(t, tt.expected.Metrics["GCCPUFraction"], tt.storage.Metrics["GCCPUFraction"])
+			err := tt.storage.Collect("Alloc", "gauge", strconv.FormatUint(tt.metric.Alloc, 10))
+			assert.NoError(t, err)
+			err = tt.storage.Collect("Sys", "gauge", strconv.FormatUint(tt.metric.Sys, 10))
+			assert.NoError(t, err)
+			err = tt.storage.Collect("GCCPUFraction", "gauge", fmt.Sprintf("%.3f", tt.metric.GCCPUFraction))
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expected.gauges, tt.storage.GetGauges())
 		})
 	}
 }

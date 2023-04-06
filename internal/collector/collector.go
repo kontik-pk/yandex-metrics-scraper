@@ -1,51 +1,130 @@
 package collector
 
 import (
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/domain"
-	"math/rand"
-	"runtime"
+	"errors"
+	"fmt"
+	"strconv"
 )
 
-func (c *collector) Collect(metrics *runtime.MemStats) {
-	c.storage.Metrics["Alloc"] = domain.Metric{Value: metrics.Alloc, MType: "gauge"}
-	c.storage.Metrics["BuckHashSys"] = domain.Metric{Value: metrics.BuckHashSys, MType: "gauge"}
-	c.storage.Metrics["Frees"] = domain.Metric{Value: metrics.Frees, MType: "gauge"}
-	c.storage.Metrics["GCCPUFraction"] = domain.Metric{Value: metrics.GCCPUFraction, MType: "gauge"}
-	c.storage.Metrics["GCSys"] = domain.Metric{Value: metrics.GCSys, MType: "gauge"}
-	c.storage.Metrics["HeapAlloc"] = domain.Metric{Value: metrics.HeapAlloc, MType: "gauge"}
-	c.storage.Metrics["HeapIdle"] = domain.Metric{Value: metrics.HeapIdle, MType: "gauge"}
-	c.storage.Metrics["HeapInuse"] = domain.Metric{Value: metrics.HeapInuse, MType: "gauge"}
-	c.storage.Metrics["HeapObjects"] = domain.Metric{Value: metrics.HeapObjects, MType: "gauge"}
-	c.storage.Metrics["HeapReleased"] = domain.Metric{Value: metrics.HeapReleased, MType: "gauge"}
-	c.storage.Metrics["HeapSys"] = domain.Metric{Value: metrics.HeapSys, MType: "gauge"}
-	c.storage.Metrics["Lookups"] = domain.Metric{Value: metrics.Lookups, MType: "gauge"}
-	c.storage.Metrics["MCacheInuse"] = domain.Metric{Value: metrics.MCacheInuse, MType: "gauge"}
-	c.storage.Metrics["MCacheSys"] = domain.Metric{Value: metrics.MCacheSys, MType: "gauge"}
-	c.storage.Metrics["MSpanInuse"] = domain.Metric{Value: metrics.MSpanInuse, MType: "gauge"}
-	c.storage.Metrics["MSpanSys"] = domain.Metric{Value: metrics.MSpanSys, MType: "gauge"}
-	c.storage.Metrics["Mallocs"] = domain.Metric{Value: metrics.Mallocs, MType: "gauge"}
-	c.storage.Metrics["NextGC"] = domain.Metric{Value: metrics.NextGC, MType: "gauge"}
-	c.storage.Metrics["NumForcedGC"] = domain.Metric{Value: metrics.NumForcedGC, MType: "gauge"}
-	c.storage.Metrics["NumGC"] = domain.Metric{Value: metrics.NumGC, MType: "gauge"}
-	c.storage.Metrics["OtherSys"] = domain.Metric{Value: metrics.OtherSys, MType: "gauge"}
-	c.storage.Metrics["PauseTotalNs"] = domain.Metric{Value: metrics.PauseTotalNs, MType: "gauge"}
-	c.storage.Metrics["StackInuse"] = domain.Metric{Value: metrics.StackInuse, MType: "gauge"}
-	c.storage.Metrics["StackSys"] = domain.Metric{Value: metrics.StackSys, MType: "gauge"}
-	c.storage.Metrics["Sys"] = domain.Metric{Value: metrics.Sys, MType: "gauge"}
-	c.storage.Metrics["TotalAlloc"] = domain.Metric{Value: metrics.TotalAlloc, MType: "gauge"}
-	c.storage.Metrics["RandomValue"] = domain.Metric{Value: rand.Int(), MType: "gauge"}
+//func (c *collector) Collect(metrics *runtime.MemStats) {
+//	c.storage.Metrics["Alloc"] = domain.Metric{Value: metrics.Alloc, MType: "gauge"}
+//	c.storage.Metrics["BuckHashSys"] = domain.Metric{Value: metrics.BuckHashSys, MType: "gauge"}
+//	c.storage.Metrics["Frees"] = domain.Metric{Value: metrics.Frees, MType: "gauge"}
+//	c.storage.Metrics["GCCPUFraction"] = domain.Metric{Value: metrics.GCCPUFraction, MType: "gauge"}
+//	c.storage.Metrics["GCSys"] = domain.Metric{Value: metrics.GCSys, MType: "gauge"}
+//	c.storage.Metrics["HeapAlloc"] = domain.Metric{Value: metrics.HeapAlloc, MType: "gauge"}
+//	c.storage.Metrics["HeapIdle"] = domain.Metric{Value: metrics.HeapIdle, MType: "gauge"}
+//	c.storage.Metrics["HeapInuse"] = domain.Metric{Value: metrics.HeapInuse, MType: "gauge"}
+//	c.storage.Metrics["HeapObjects"] = domain.Metric{Value: metrics.HeapObjects, MType: "gauge"}
+//	c.storage.Metrics["HeapReleased"] = domain.Metric{Value: metrics.HeapReleased, MType: "gauge"}
+//	c.storage.Metrics["HeapSys"] = domain.Metric{Value: metrics.HeapSys, MType: "gauge"}
+//	c.storage.Metrics["Lookups"] = domain.Metric{Value: metrics.Lookups, MType: "gauge"}
+//	c.storage.Metrics["MCacheInuse"] = domain.Metric{Value: metrics.MCacheInuse, MType: "gauge"}
+//	c.storage.Metrics["MCacheSys"] = domain.Metric{Value: metrics.MCacheSys, MType: "gauge"}
+//	c.storage.Metrics["MSpanInuse"] = domain.Metric{Value: metrics.MSpanInuse, MType: "gauge"}
+//	c.storage.Metrics["MSpanSys"] = domain.Metric{Value: metrics.MSpanSys, MType: "gauge"}
+//	c.storage.Metrics["Mallocs"] = domain.Metric{Value: metrics.Mallocs, MType: "gauge"}
+//	c.storage.Metrics["NextGC"] = domain.Metric{Value: metrics.NextGC, MType: "gauge"}
+//	c.storage.Metrics["NumForcedGC"] = domain.Metric{Value: metrics.NumForcedGC, MType: "gauge"}
+//	c.storage.Metrics["NumGC"] = domain.Metric{Value: metrics.NumGC, MType: "gauge"}
+//	c.storage.Metrics["OtherSys"] = domain.Metric{Value: metrics.OtherSys, MType: "gauge"}
+//	c.storage.Metrics["PauseTotalNs"] = domain.Metric{Value: metrics.PauseTotalNs, MType: "gauge"}
+//	c.storage.Metrics["StackInuse"] = domain.Metric{Value: metrics.StackInuse, MType: "gauge"}
+//	c.storage.Metrics["StackSys"] = domain.Metric{Value: metrics.StackSys, MType: "gauge"}
+//	c.storage.Metrics["Sys"] = domain.Metric{Value: metrics.Sys, MType: "gauge"}
+//	c.storage.Metrics["TotalAlloc"] = domain.Metric{Value: metrics.TotalAlloc, MType: "gauge"}
+//	c.storage.Metrics["RandomValue"] = domain.Metric{Value: rand.Int(), MType: "gauge"}
+//
+//	var cnt int64
+//	if c.storage.Metrics["PollCount"].Value != nil {
+//		cnt = c.storage.Metrics["PollCount"].Value.(int64) + 1
+//	}
+//	c.storage.Metrics["PollCount"] = domain.Metric{Value: cnt, MType: "counter"}
+//}
 
-	var cnt int64
-	if c.storage.Metrics["PollCount"].Value != nil {
-		cnt = c.storage.Metrics["PollCount"].Value.(int64) + 1
-	}
-	c.storage.Metrics["PollCount"] = domain.Metric{Value: cnt, MType: "counter"}
+var ErrBadRequest = errors.New("bad request")
+var ErrNotImplemented = errors.New("not implemented")
+var ErrNotFound = errors.New("not found")
+
+var Collector = collector{
+	storage: &memStorage{
+		counters: make(map[string]int),
+		gauges:   make(map[string]string),
+	},
 }
 
-func New(ms *domain.MemStorage) *collector {
-	return &collector{ms}
+func (c *collector) Collect(metricName string, metricType string, metricValue string) error {
+	switch metricType {
+	case "counter":
+		value, err := strconv.Atoi(metricValue)
+		if err != nil {
+			return ErrBadRequest
+		}
+		c.storage.counters[metricName] += value
+	case "gauge":
+		_, err := strconv.ParseFloat(metricValue, 64)
+		if err != nil {
+			return ErrBadRequest
+		}
+		c.storage.gauges[metricName] = metricValue
+	default:
+		return ErrNotImplemented
+	}
+	fmt.Println(c.storage.gauges)
+	return nil
+}
+
+func (c *collector) GetMetric(metricName string, metricType string) (string, error) {
+	switch metricType {
+	case "counter":
+		value, ok := Collector.storage.counters[metricName]
+		if !ok {
+			return "", ErrNotFound
+		}
+		return strconv.Itoa(value), nil
+	case "gauge":
+		value, ok := Collector.storage.gauges[metricName]
+		if !ok {
+			return "", ErrNotFound
+		}
+		return value, nil
+	default:
+		return "", ErrNotImplemented
+	}
+}
+
+func (c *collector) GetCounters() map[string]string {
+	counters := make(map[string]string, 0)
+	for name, value := range c.storage.counters {
+		counters[name] = strconv.Itoa(value)
+	}
+	return counters
+}
+
+func (c *collector) GetGauges() map[string]string {
+	gauges := make(map[string]string, 0)
+	for name, value := range c.storage.gauges {
+		gauges[name] = value
+	}
+	return gauges
+}
+
+func (c *collector) GetAvailableMetrics() []string {
+	names := make([]string, 0)
+	for cm := range c.storage.counters {
+		names = append(names, cm)
+	}
+	for gm := range c.storage.gauges {
+		names = append(names, gm)
+	}
+	return names
 }
 
 type collector struct {
-	storage *domain.MemStorage
+	storage *memStorage
+}
+
+type memStorage struct {
+	counters map[string]int
+	gauges   map[string]string
 }
