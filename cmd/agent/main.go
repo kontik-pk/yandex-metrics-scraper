@@ -13,22 +13,16 @@ import (
 	"time"
 )
 
-// неэкспортированная переменная flagRunAddr содержит адрес и порт для запуска сервера
 var (
 	flagRunAddr    string
 	reportInterval int
 	pollInterval   int
 )
 
-// parseFlags обрабатывает аргументы командной строки
-// и сохраняет их значения в соответствующих переменных
 func parseFlags() {
-	// регистрируем переменную flagRunAddr
-	// как аргумент -a со значением :8080 по умолчанию
 	flag.StringVar(&flagRunAddr, "a", "localhost:8080", "address and port to run server")
 	flag.IntVar(&reportInterval, "r", 10, "report interval")
 	flag.IntVar(&pollInterval, "p", 2, "poll interval")
-	// парсим переданные серверу аргументы в зарегистрированные переменные
 	flag.Parse()
 }
 
@@ -54,6 +48,28 @@ func main() {
 	})
 
 	_ = errs.Wait()
+}
+
+func send(client *resty.Client, reportTimeout int) error {
+	for {
+		for n, v := range collector.Collector.GetCounters() {
+			_, err := client.R().
+				SetHeader("Content-Type", "text/plain").
+				Post(fmt.Sprintf("http://%s/update/counter/%s/%s", flagRunAddr, n, v))
+			if err != nil {
+				return err
+			}
+		}
+		for n, v := range collector.Collector.GetGauges() {
+			_, err := client.R().
+				SetHeader("Content-Type", "text/plain").
+				Post(fmt.Sprintf("http://%s/update/gauge/%s/%s", flagRunAddr, n, v))
+			if err != nil {
+				return err
+			}
+		}
+		time.Sleep(time.Second * time.Duration(reportTimeout))
+	}
 }
 
 func performCollect(pollInterval time.Duration) error {
@@ -93,43 +109,5 @@ func performCollect(pollInterval time.Duration) error {
 		collector.Collector.Collect("PollCount", "counter", strconv.Itoa(v+1))
 
 		time.Sleep(time.Second * pollInterval)
-	}
-}
-
-func send(client *resty.Client, reportTimeout int) error {
-	for {
-		for n, v := range collector.Collector.GetCounters() {
-			_, err := client.R().
-				SetHeader("Content-Type", "text/plain").
-				Post(fmt.Sprintf("http://%s/update/counter/%s/%s", flagRunAddr, n, v))
-			if err != nil {
-				return err
-			}
-			//switch i.Value.(type) {
-			//case uint, uint64, int, int64:
-			//	_, err := client.R().
-			//		SetHeader("Content-Type", "text/plain").
-			//		Post(fmt.Sprintf("http://%s/update/%s/%s/%d", flagRunAddr, i.MType, n, i.Value))
-			//	if err != nil {
-			//		return err
-			//	}
-			//case float64:
-			//	_, err := client.R().
-			//		SetHeader("Content-Type", "text/plain").
-			//		Post(fmt.Sprintf("http://%s/update/%s/%s/%f", flagRunAddr, i.MType, n, i.Value))
-			//	if err != nil {
-			//		return err
-			//	}
-			//}
-		}
-		for n, v := range collector.Collector.GetGauges() {
-			_, err := client.R().
-				SetHeader("Content-Type", "text/plain").
-				Post(fmt.Sprintf("http://%s/update/gauge/%s/%s", flagRunAddr, n, v))
-			if err != nil {
-				return err
-			}
-		}
-		time.Sleep(time.Second * time.Duration(reportTimeout))
 	}
 }
