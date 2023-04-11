@@ -8,6 +8,7 @@ import (
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"golang.org/x/sync/errgroup"
 	"math/rand"
+	"os"
 	"runtime"
 	"strconv"
 	"time"
@@ -20,10 +21,27 @@ var (
 )
 
 func parseFlags() {
+
 	flag.StringVar(&flagRunAddr, "a", "localhost:8080", "address and port to run server")
 	flag.IntVar(&reportInterval, "r", 10, "report interval")
 	flag.IntVar(&pollInterval, "p", 2, "poll interval")
 	flag.Parse()
+
+	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
+		flagRunAddr = envRunAddr
+	}
+	if envReportInterval := os.Getenv("REPORT_INTERVAL"); envReportInterval != "" {
+		reportIntervalEnv, err := strconv.Atoi(envReportInterval)
+		if err == nil {
+			reportInterval = reportIntervalEnv
+		}
+	}
+	if envPollInterval := os.Getenv("POLL_INTERVAL"); envPollInterval != "" {
+		pollIntervalEnv, err := strconv.Atoi(envPollInterval)
+		if err == nil {
+			pollInterval = pollIntervalEnv
+		}
+	}
 }
 
 func main() {

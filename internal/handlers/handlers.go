@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
+	"html/template"
 	"io"
 	"net/http"
 	"strconv"
@@ -15,7 +16,6 @@ func SaveMetric(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
 	metricValue := chi.URLParam(r, "value")
@@ -30,7 +30,9 @@ func SaveMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	io.WriteString(w, "")
+	if _, err = io.WriteString(w, ""); err != nil {
+		return
+	}
 	w.Header().Set("content-type", "text/plain; charset=utf-8")
 	w.Header().Set("content-length", strconv.Itoa(len(metricName)))
 	w.WriteHeader(http.StatusOK)
@@ -50,32 +52,30 @@ func GetMetric(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	io.WriteString(w, "")
+	if _, err = io.WriteString(w, ""); err != nil {
+		return
+	}
 	w.Header().Set("content-type", "text/plain; charset=utf-8")
 	w.Header().Set("content-length", strconv.Itoa(len(value)))
 	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, value)
+	if _, err = io.WriteString(w, value); err != nil {
+		return
+	}
 }
 
 func ShowMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
-		http.Error(w, "404 not found.", http.StatusNotFound)
+		http.Error(w, fmt.Sprintf("wrong path %q", r.URL.Path), http.StatusNotFound)
 		return
 	}
-	page := `
-<html> 
-   <head> 
-   </head> 
-   <body> 
-`
+	page := ""
 	for _, n := range collector.Collector.GetAvailableMetrics() {
-		page += fmt.Sprintf(`<h3>%s   </h3>`, n)
+		page += fmt.Sprintf("<h1>	%s</h1>", n)
 	}
-	page += `
-   </body> 
-</html>
-`
+	tmpl, _ := template.New("data").Parse("<h1>AVAILABLE METRICS</h1>{{range .}}<h3>{{ .}}</h3>{{end}}")
+	if err := tmpl.Execute(w, collector.Collector.GetAvailableMetrics()); err != nil {
+		return
+	}
 	w.Header().Set("content-type", "Content-Type: text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(page))
 }

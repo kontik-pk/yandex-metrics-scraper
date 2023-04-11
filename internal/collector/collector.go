@@ -2,13 +2,14 @@ package collector
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 )
 
-var ErrBadRequest = errors.New("bad request")
-var ErrNotImplemented = errors.New("not implemented")
-var ErrNotFound = errors.New("not found")
+var (
+	ErrBadRequest     = errors.New("bad request")
+	ErrNotImplemented = errors.New("not implemented")
+	ErrNotFound       = errors.New("not found")
+)
 
 var Collector = collector{
 	storage: &memStorage{
@@ -34,7 +35,6 @@ func (c *collector) Collect(metricName string, metricType string, metricValue st
 	default:
 		return ErrNotImplemented
 	}
-	fmt.Println(c.storage.gauges)
 	return nil
 }
 
