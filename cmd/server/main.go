@@ -14,7 +14,13 @@ var flagRunAddr string
 func parseFlags() {
 	cnvFlags := flag.NewFlagSet("cnv", flag.ContinueOnError)
 	cnvFlags.StringVar(&flagRunAddr, "a", "localhost:8080", "address and port to run server")
-	cnvFlags.Parse(os.Args[1:])
+	err := cnvFlags.Parse(os.Args[1:])
+	if err != nil {
+		log.Fatal(err)
+	}
+	if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
+		flagRunAddr = envRunAddr
+	}
 }
 
 func main() {

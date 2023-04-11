@@ -22,6 +22,7 @@ func (c *collector) Collect(metricName string, metricType string, metricValue st
 	case "counter":
 		value, err := strconv.Atoi(metricValue)
 		if err != nil {
+			fmt.Println("THERE")
 			return ErrBadRequest
 		}
 		c.storage.counters[metricName] += value
@@ -34,7 +35,6 @@ func (c *collector) Collect(metricName string, metricType string, metricValue st
 	default:
 		return ErrNotImplemented
 	}
-	fmt.Println(c.storage.gauges)
 	return nil
 }
 
