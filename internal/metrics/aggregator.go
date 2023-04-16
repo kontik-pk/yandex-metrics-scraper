@@ -45,9 +45,9 @@ func (a *aggregator) Aggregate() {
 	collector.Collector.Collect("PollCount", "counter", strconv.Itoa(v+1))
 }
 
-func New() *aggregator {
+func New(metricsCollector collectorImpl) *aggregator {
 	return &aggregator{
-		metricsCollector: &collector.Collector,
+		metricsCollector: metricsCollector,
 	}
 }
 

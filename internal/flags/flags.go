@@ -4,13 +4,12 @@ import (
 	"flag"
 	"os"
 	"strconv"
-	"time"
 )
 
 const (
 	defaultAddr           string = "localhost:8080"
-	defaultReportInterval        = 2 * time.Second
-	defaultPollInterval          = 1 * time.Second
+	defaultReportInterval int    = 10
+	defaultPollInterval   int    = 2
 )
 
 type Option func(params2 *params)
@@ -26,11 +25,11 @@ func WithAddr() Option {
 
 func WithReportInterval() Option {
 	return func(p *params) {
-		flag.DurationVar(&p.ReportInterval, "r", defaultReportInterval, "report interval")
+		flag.IntVar(&p.ReportInterval, "r", defaultReportInterval, "report interval")
 		if envReportInterval := os.Getenv("REPORT_INTERVAL"); envReportInterval != "" {
 			reportIntervalEnv, err := strconv.Atoi(envReportInterval)
 			if err == nil {
-				p.ReportInterval = time.Duration(reportIntervalEnv) * time.Second
+				p.ReportInterval = reportIntervalEnv
 			}
 		}
 	}
@@ -38,11 +37,11 @@ func WithReportInterval() Option {
 
 func WithPollInterval() Option {
 	return func(p *params) {
-		flag.DurationVar(&p.PollInterval, "p", defaultPollInterval, "poll interval")
+		flag.IntVar(&p.PollInterval, "p", defaultPollInterval, "poll interval")
 		if envPollInterval := os.Getenv("POLL_INTERVAL"); envPollInterval != "" {
 			pollIntervalEnv, err := strconv.Atoi(envPollInterval)
 			if err == nil {
-				p.PollInterval = time.Duration(pollIntervalEnv) * time.Second
+				p.PollInterval = pollIntervalEnv
 			}
 		}
 	}
@@ -59,6 +58,6 @@ func Init(opts ...Option) *params {
 
 type params struct {
 	FlagRunAddr    string
-	ReportInterval time.Duration
-	PollInterval   time.Duration
+	ReportInterval int
+	PollInterval   int
 }
