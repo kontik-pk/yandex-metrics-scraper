@@ -21,6 +21,8 @@ func main() {
 	params := flags.Init(flags.WithAddr())
 	r := chi.NewRouter()
 	r.Use(log.RequestLogger)
+	r.Post("/update/", handlers.SaveMetricFromJSON)
+	r.Post("/value/", handlers.GetMetricFromJSON)
 	r.Post("/update/{type}/{name}/{value}", handlers.SaveMetric)
 	r.Get("/value/{type}/{name}", handlers.GetMetric)
 	r.Get("/", handlers.ShowMetrics)

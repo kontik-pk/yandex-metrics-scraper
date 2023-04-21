@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/avast/retry-go"
 	"github.com/go-resty/resty/v2"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
@@ -40,19 +41,39 @@ func main() {
 func send(client *resty.Client, reportTimeout int, addr string) error {
 	for {
 		for n, v := range collector.Collector.GetCounters() {
-			if _, err := client.R().
-				SetHeader("Content-Type", "text/plain").
-				Post(fmt.Sprintf("http://%s/update/counter/%s/%s", addr, n, v)); err != nil {
+			req := client.R().SetHeader("Content-Type", "application/json").
+				SetBody(fmt.Sprintf(`{"id":%q, "type":"counter", "delta": %s}`, n, v))
+			if err := sendRequest(req, addr); err != nil {
 				return err
 			}
 		}
 		for n, v := range collector.Collector.GetGauges() {
-			if _, err := client.R().
-				SetHeader("Content-Type", "text/plain").
-				Post(fmt.Sprintf("http://%s/update/gauge/%s/%s", addr, n, v)); err != nil {
+			req := client.R().
+				SetHeader("Content-Type", "application/json").
+				SetBody(fmt.Sprintf(`{"id":%q, "type":"gauge", "value": %s}`, n, v))
+			if err := sendRequest(req, addr); err != nil {
 				return err
 			}
 		}
 		time.Sleep(time.Duration(reportTimeout) * time.Second)
 	}
+}
+
+func sendRequest(req *resty.Request, addr string) error {
+	err := retry.Do(
+		func() error {
+			var err error
+			_, err = req.Post(fmt.Sprintf("http://%s/update/", addr))
+			return err
+		},
+		retry.Attempts(10),
+		retry.OnRetry(func(n uint, err error) {
+			log.Printf("Retrying request after error: %v", err)
+		}),
+	)
+	if err != nil {
+		return err
+	}
+	// do something with the response
+	return nil
 }

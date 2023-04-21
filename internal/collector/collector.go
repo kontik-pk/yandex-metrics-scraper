@@ -38,7 +38,7 @@ func (c *collector) Collect(metricName string, metricType string, metricValue st
 	return nil
 }
 
-func (c *collector) GetMetric(metricName string, metricType string) (string, error) {
+func (c *collector) GetMetricByName(metricName string, metricType string) (string, error) {
 	switch metricType {
 	case "counter":
 		value, ok := Collector.storage.counters[metricName]
