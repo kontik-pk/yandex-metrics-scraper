@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/go-chi/chi/v5"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/compressor"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/handlers"
 	log "github.com/kontik-pk/yandex-metrics-scraper/internal/logger"
@@ -21,6 +22,7 @@ func main() {
 	params := flags.Init(flags.WithAddr())
 	r := chi.NewRouter()
 	r.Use(log.RequestLogger)
+	r.Use(compressor.Compress)
 	r.Post("/update/", handlers.SaveMetricFromJSON)
 	r.Post("/value/", handlers.GetMetricFromJSON)
 	r.Post("/update/{type}/{name}/{value}", handlers.SaveMetric)

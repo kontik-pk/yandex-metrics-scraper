@@ -9,6 +9,7 @@ import (
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 )
@@ -52,15 +53,20 @@ func SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(r.Body); err != nil {
+		log.Println("error while read from body in SaveMetricFromJSON: ", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	fmt.Println("one: ", buf.String())
+
 	var metric Metrics
 	if err := json.Unmarshal(buf.Bytes(), &metric); err != nil {
+		log.Println("error while unmarshall in SaveMetricFromJSON: ", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	fmt.Println("two: ", metric)
 	metricValue := ""
 	switch metric.MType {
 	case "counter":
@@ -107,15 +113,20 @@ func SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 		result.Value = &g
 	}
 
+	fmt.Println("three: ", result)
+
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
+		log.Println("error while unmarshall resultJSON in SaveMetricFromJSON: ", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
 	w.Header().Set("content-type", "application/json")
-	if _, err = w.Write(resultJSON); err != nil {
-		return
+
+	fmt.Println(resultJSON)
+	_, err = w.Write(resultJSON)
+	if err != nil {
+		log.Fatalln(err)
 	}
 	w.Header().Set("content-length", strconv.Itoa(len(metric.ID)))
 	w.WriteHeader(http.StatusOK)
@@ -123,15 +134,18 @@ func SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 
 func GetMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", "application/json")
+
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(r.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	fmt.Println(string(buf.Bytes()))
 
 	var metric Metrics
 	if err := json.Unmarshal(buf.Bytes(), &metric); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		log.Fatalln("error while unmarshall buf in GetMetricFromJSON: ", err)
+		//w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
@@ -167,14 +181,18 @@ func GetMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	resultJSON, err := json.Marshal(metric)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Fatalln("error while marshall resultJSON in GetMetricFromJSON: ", err)
+		//http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	w.Header().Set("content-type", "application/json")
+
 	if _, err = w.Write(resultJSON); err != nil {
+		log.Fatalln("error while write resultJSON in GetMetricFromJSON: ", err)
 		return
 	}
+	fmt.Println(string(resultJSON))
 	w.Header().Set("content-length", strconv.Itoa(len(value)))
 	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
