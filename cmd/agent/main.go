@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"github.com/avast/retry-go"
 	"github.com/go-resty/resty/v2"
@@ -18,6 +19,7 @@ import (
 func main() {
 	params := flags.Init(flags.WithPollInterval(), flags.WithReportInterval(), flags.WithAddr())
 
+	fmt.Println(params.FlagRunAddr)
 	ctx := context.Background()
 
 	errs, _ := errgroup.WithContext(ctx)
@@ -43,7 +45,9 @@ func main() {
 func send(client *resty.Client, reportTimeout int, addr string) error {
 	req := client.R().
 		SetHeader("Content-Type", "application/json").
+		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("Content-Encoding", "gzip")
+
 	for {
 		for n, v := range collector.Collector.GetCounters() {
 			jsonInput := fmt.Sprintf(`{"id":%q, "type":"counter", "delta": %s}`, n, v)
@@ -65,7 +69,7 @@ func sendRequest(req *resty.Request, jsonInput string, addr string) error {
 	buf := bytes.NewBuffer(nil)
 	zb := gzip.NewWriter(buf)
 	if _, err := zb.Write([]byte(jsonInput)); err != nil {
-		return err
+		return fmt.Errorf("error while write json input: %w", err)
 	}
 	if err := zb.Close(); err != nil {
 		return fmt.Errorf("error while trying to close writer: %w", err)
@@ -85,8 +89,10 @@ func sendRequest(req *resty.Request, jsonInput string, addr string) error {
 		}),
 	)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			log.Println("ContextDeadlineExceeded: true")
+		}
 		return fmt.Errorf("error while trying to connect to server: %w", err)
 	}
-	// do something with the response
 	return nil
 }

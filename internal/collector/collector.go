@@ -1,7 +1,9 @@
 package collector
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 )
 
@@ -36,6 +38,51 @@ func (c *collector) Collect(metricName string, metricType string, metricValue st
 		return ErrNotImplemented
 	}
 	return nil
+}
+
+func (c *collector) CollectFromJSON(metric MetricJSON) error {
+	metricValue := ""
+	switch metric.MType {
+	case "counter":
+		metricValue = strconv.Itoa(int(*metric.Delta))
+	case "gauge":
+		metricValue = fmt.Sprintf("%.11f", *metric.Value)
+	}
+
+	return c.Collect(metric.ID, metric.MType, metricValue)
+}
+
+func (c *collector) GetMetricJSON(metricName string, metricType string) ([]byte, error) {
+	updated, err := c.GetMetricByName(metricName, metricType)
+	if err != nil {
+		return nil, err
+	}
+
+	result := MetricJSON{
+		ID:    metricName,
+		MType: metricType,
+	}
+	switch result.MType {
+	case "counter":
+		counter, err := strconv.Atoi(updated)
+		if err != nil {
+			return nil, ErrBadRequest
+		}
+		c64 := int64(counter)
+		result.Delta = &c64
+	case "gauge":
+		g, err := strconv.ParseFloat(updated, 64)
+		if err != nil {
+			return nil, ErrBadRequest
+		}
+		result.Value = &g
+	}
+
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return nil, ErrBadRequest
+	}
+	return resultJSON, nil
 }
 
 func (c *collector) GetMetricByName(metricName string, metricType string) (string, error) {
@@ -82,6 +129,13 @@ func (c *collector) GetAvailableMetrics() []string {
 		names = append(names, gm)
 	}
 	return names
+}
+
+type MetricJSON struct {
+	ID    string   `json:"id"`              // имя метрики
+	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
+	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
+	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
 type collector struct {
