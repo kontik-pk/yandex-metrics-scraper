@@ -42,7 +42,6 @@ func SaveMetric(w http.ResponseWriter, r *http.Request) {
 }
 
 func SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -83,16 +82,15 @@ func SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("content-type", "application/json")
 	if _, err = w.Write(resultJSON); err != nil {
 		return
 	}
 	w.Header().Set("content-length", strconv.Itoa(len(metric.ID)))
+	w.Header().Set("content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
 }
 
 func GetMetricFromJSON(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("content-type", "application/json")
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(r.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -152,6 +150,7 @@ func GetMetric(w http.ResponseWriter, r *http.Request) {
 }
 
 func ShowMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("content-type", "Content-Type: text/html; charset=utf-8")
 	if r.URL.Path != "/" {
 		http.Error(w, fmt.Sprintf("wrong path %q", r.URL.Path), http.StatusNotFound)
 		return

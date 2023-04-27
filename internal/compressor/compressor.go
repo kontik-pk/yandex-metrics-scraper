@@ -75,7 +75,7 @@ func Compress(h http.Handler) http.Handler {
 		contentEncoding := r.Header.Get("Content-Encoding")
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
 
-		if sendsGzip && supportsGzip {
+		if sendsGzip {
 			cw := NewCompressWriter(w)
 			ow = cw
 			defer cw.Close()
@@ -88,8 +88,14 @@ func Compress(h http.Handler) http.Handler {
 
 			r.Body = cr
 			defer cr.Close()
-		}
+		} else if supportsGzip && !sendsGzip {
+			cw := NewCompressWriter(w)
 
+			ow = cw
+			ow.Header().Set("Content-Encoding", "gzip")
+			defer cw.Close()
+
+		}
 		h.ServeHTTP(ow, r)
 	}
 	return http.HandlerFunc(zipFn)

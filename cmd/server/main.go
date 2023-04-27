@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/compressor"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
@@ -30,8 +29,6 @@ func main() {
 	r.Get("/value/{type}/{name}", handlers.GetMetric)
 	r.Get("/", handlers.ShowMetrics)
 
-	fmt.Println(params.FlagRunAddr)
-	log.SugarLogger.Error(params.FlagRunAddr)
 	log.SugarLogger.Infow(
 		"Starting server",
 		"addr", params.FlagRunAddr,
