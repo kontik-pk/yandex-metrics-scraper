@@ -17,27 +17,27 @@ func TestCollector_Collect(t *testing.T) {
 	}{
 		{
 			name:        "case0",
-			storage:     collector{storage: &memStorage{gauges: map[string]string{}, counters: map[string]int{}}},
+			storage:     collector{storage: &memStorage{Gauges: map[string]string{}, Counters: map[string]int{}}},
 			metricName:  "Alloc",
 			metricType:  "gauge",
 			metricValue: "1",
 			expected: memStorage{
-				gauges: map[string]string{
+				Gauges: map[string]string{
 					"Alloc": "1",
 				},
 			},
 		},
 		{
 			name: "case1",
-			storage: collector{storage: &memStorage{gauges: map[string]string{
+			storage: collector{storage: &memStorage{Gauges: map[string]string{
 				"Alloc":         "3",
 				"GCCPUFraction": "5.543",
-			}, counters: map[string]int{}}},
+			}, Counters: map[string]int{}}},
 			metricName:  "Alloc",
 			metricType:  "gauge",
 			metricValue: "1",
 			expected: memStorage{
-				gauges: map[string]string{
+				Gauges: map[string]string{
 					"Alloc":         "1",
 					"GCCPUFraction": "5.543",
 				},
@@ -45,59 +45,59 @@ func TestCollector_Collect(t *testing.T) {
 		},
 		{
 			name: "case3",
-			storage: collector{storage: &memStorage{gauges: map[string]string{
+			storage: collector{storage: &memStorage{Gauges: map[string]string{
 				"Alloc": "3",
 				"Sys":   "5",
-			}, counters: map[string]int{
+			}, Counters: map[string]int{
 				"Counter": 5,
 			}}},
 			metricName:  "Counter",
 			metricType:  "counter",
 			metricValue: "10",
 			expected: memStorage{
-				gauges: map[string]string{
+				Gauges: map[string]string{
 					"Alloc": "3",
 					"Sys":   "5",
 				},
-				counters: map[string]int{
+				Counters: map[string]int{
 					"Counter": 15,
 				},
 			},
 		},
 		{
 			name: "case4",
-			storage: collector{storage: &memStorage{gauges: map[string]string{
+			storage: collector{storage: &memStorage{Gauges: map[string]string{
 				"Alloc": "3",
 				"Sys":   "5",
-			}, counters: map[string]int{}}},
+			}, Counters: map[string]int{}}},
 			metricName:  "Counter",
 			metricType:  "counter",
 			metricValue: "10",
 			expected: memStorage{
-				gauges: map[string]string{
+				Gauges: map[string]string{
 					"Alloc": "3",
 					"Sys":   "5",
 				},
-				counters: map[string]int{
+				Counters: map[string]int{
 					"Counter": 10,
 				},
 			},
 		},
 		{
 			name:        "case5",
-			storage:     collector{storage: &memStorage{gauges: map[string]string{}, counters: map[string]int{}}},
+			storage:     collector{storage: &memStorage{Gauges: map[string]string{}, Counters: map[string]int{}}},
 			metricName:  "Alloc",
 			metricType:  "gauge",
 			metricValue: "1.0000000",
 			expected: memStorage{
-				gauges: map[string]string{
+				Gauges: map[string]string{
 					"Alloc": "1.0000000",
 				},
 			},
 		},
 		{
 			name:        "case5",
-			storage:     collector{storage: &memStorage{gauges: map[string]string{}, counters: map[string]int{}}},
+			storage:     collector{storage: &memStorage{Gauges: map[string]string{}, Counters: map[string]int{}}},
 			metricName:  "Alloc",
 			metricType:  "gauge",
 			metricValue: "invalid",
@@ -109,7 +109,7 @@ func TestCollector_Collect(t *testing.T) {
 		},
 		{
 			name:        "case5",
-			storage:     collector{storage: &memStorage{gauges: map[string]string{}, counters: map[string]int{}}},
+			storage:     collector{storage: &memStorage{Gauges: map[string]string{}, Counters: map[string]int{}}},
 			metricName:  "Alloc",
 			metricType:  "invalid",
 			metricValue: "15",
@@ -121,7 +121,7 @@ func TestCollector_Collect(t *testing.T) {
 		},
 		{
 			name:        "case5",
-			storage:     collector{storage: &memStorage{gauges: map[string]string{}, counters: map[string]int{}}},
+			storage:     collector{storage: &memStorage{Gauges: map[string]string{}, Counters: map[string]int{}}},
 			metricName:  "Alloc",
 			metricType:  "counter",
 			metricValue: "17.001",
@@ -140,7 +140,7 @@ func TestCollector_Collect(t *testing.T) {
 			} else {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			}
-			assert.Equal(t, tt.expected.gauges, tt.storage.GetGauges())
+			assert.Equal(t, tt.expected.Gauges, tt.storage.GetGauges())
 		})
 	}
 }

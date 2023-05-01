@@ -1,9 +1,11 @@
 package collector
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 )
 
@@ -15,8 +17,8 @@ var (
 
 var Collector = collector{
 	storage: &memStorage{
-		counters: make(map[string]int),
-		gauges:   make(map[string]string),
+		Counters: make(map[string]int),
+		Gauges:   make(map[string]string),
 	},
 }
 
@@ -27,15 +29,56 @@ func (c *collector) Collect(metricName string, metricType string, metricValue st
 		if err != nil {
 			return ErrBadRequest
 		}
-		c.storage.counters[metricName] += value
+		c.storage.Counters[metricName] += value
 	case "gauge":
 		_, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			return ErrBadRequest
 		}
-		c.storage.gauges[metricName] = metricValue
+		c.storage.Gauges[metricName] = metricValue
 	default:
 		return ErrNotImplemented
+	}
+	return nil
+}
+
+func (c *collector) Restore(filePath string) error {
+	file, err := os.OpenFile(filePath, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	scanner := bufio.NewScanner(file)
+	if !scanner.Scan() {
+		return err
+	}
+	data := scanner.Bytes()
+	metricsFromFile := memStorage{}
+	if err = json.Unmarshal(data, &metricsFromFile); err != nil {
+		return err
+	}
+	c.decode(metricsFromFile)
+	return nil
+}
+
+func (c *collector) Save(filePath string) error {
+	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return err
+	}
+	writer := bufio.NewWriter(file)
+	metricsData := c.encode()
+	data, err := json.Marshal(&metricsData)
+	if err != nil {
+		return err
+	}
+	if _, err := writer.Write(data); err != nil {
+		return err
+	}
+	if err := writer.WriteByte('\n'); err != nil {
+		return err
+	}
+	if err := writer.Flush(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -88,13 +131,13 @@ func (c *collector) GetMetricJSON(metricName string, metricType string) ([]byte,
 func (c *collector) GetMetricByName(metricName string, metricType string) (string, error) {
 	switch metricType {
 	case "counter":
-		value, ok := Collector.storage.counters[metricName]
+		value, ok := Collector.storage.Counters[metricName]
 		if !ok {
 			return "", ErrNotFound
 		}
 		return strconv.Itoa(value), nil
 	case "gauge":
-		value, ok := Collector.storage.gauges[metricName]
+		value, ok := Collector.storage.Gauges[metricName]
 		if !ok {
 			return "", ErrNotFound
 		}
@@ -106,7 +149,7 @@ func (c *collector) GetMetricByName(metricName string, metricType string) (strin
 
 func (c *collector) GetCounters() map[string]string {
 	counters := make(map[string]string, 0)
-	for name, value := range c.storage.counters {
+	for name, value := range c.storage.Counters {
 		counters[name] = strconv.Itoa(value)
 	}
 	return counters
@@ -114,7 +157,7 @@ func (c *collector) GetCounters() map[string]string {
 
 func (c *collector) GetGauges() map[string]string {
 	gauges := make(map[string]string, 0)
-	for name, value := range c.storage.gauges {
+	for name, value := range c.storage.Gauges {
 		gauges[name] = value
 	}
 	return gauges
@@ -122,13 +165,21 @@ func (c *collector) GetGauges() map[string]string {
 
 func (c *collector) GetAvailableMetrics() []string {
 	names := make([]string, 0)
-	for cm := range c.storage.counters {
+	for cm := range c.storage.Counters {
 		names = append(names, cm)
 	}
-	for gm := range c.storage.gauges {
+	for gm := range c.storage.Gauges {
 		names = append(names, gm)
 	}
 	return names
+}
+
+func (c *collector) encode() memStorage {
+	return *c.storage
+}
+
+func (c *collector) decode(encoded memStorage) {
+	c.storage = &encoded
 }
 
 type MetricJSON struct {
@@ -143,6 +194,6 @@ type collector struct {
 }
 
 type memStorage struct {
-	counters map[string]int
-	gauges   map[string]string
+	Counters map[string]int
+	Gauges   map[string]string
 }

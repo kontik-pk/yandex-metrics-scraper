@@ -7,9 +7,12 @@ import (
 )
 
 const (
-	defaultAddr           string = "localhost:8080"
-	defaultReportInterval int    = 10
-	defaultPollInterval   int    = 2
+	defaultAddr            string = "localhost:8080"
+	defaultReportInterval  int    = 10
+	defaultPollInterval    int    = 2
+	defaultStoreInterval   int    = 300
+	defaultFileStoragePath string = "/tmp/metrics-db.json"
+	defaultRestore         bool   = true
 )
 
 type Option func(params2 *params)
@@ -47,6 +50,42 @@ func WithPollInterval() Option {
 	}
 }
 
+func WithStoreInterval() Option {
+	return func(p *params) {
+		flag.IntVar(&p.StoreInterval, "i", defaultStoreInterval, "store interval in seconds")
+		if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
+			storeIntervalEnv, err := strconv.Atoi(envStoreInterval)
+			if err == nil {
+				p.StoreInterval = storeIntervalEnv
+			}
+		}
+	}
+}
+
+func WithFileStoragePath() Option {
+	return func(p *params) {
+		flag.StringVar(&p.FileStoragePath, "f", defaultFileStoragePath, "file name for metrics collection")
+		if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
+			fileStoragePath, err := strconv.Atoi(envFileStoragePath)
+			if err == nil {
+				p.StoreInterval = fileStoragePath
+			}
+		}
+	}
+}
+
+func WithRestore() Option {
+	return func(p *params) {
+		flag.BoolVar(&p.Restore, "r", defaultRestore, "restore data from file")
+		if envRestore := os.Getenv("RESTORE"); envRestore != "" {
+			restore, err := strconv.Atoi(envRestore)
+			if err == nil {
+				p.StoreInterval = restore
+			}
+		}
+	}
+}
+
 func Init(opts ...Option) *params {
 	p := &params{}
 	for _, opt := range opts {
@@ -57,7 +96,10 @@ func Init(opts ...Option) *params {
 }
 
 type params struct {
-	FlagRunAddr    string
-	ReportInterval int
-	PollInterval   int
+	FlagRunAddr     string
+	ReportInterval  int
+	PollInterval    int
+	StoreInterval   int
+	FileStoragePath string
+	Restore         bool
 }
