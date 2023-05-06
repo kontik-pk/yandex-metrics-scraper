@@ -18,10 +18,15 @@ func SaveMetric(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
 	metricValue := chi.URLParam(r, "value")
 
+	if metricName == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	err := collector.Collector.Collect(metricName, metricType, metricValue)
 	if errors.Is(err, collector.ErrBadRequest) {
 		w.WriteHeader(http.StatusBadRequest)
@@ -54,6 +59,10 @@ func SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 
 	var metric collector.MetricJSON
 	if err := json.Unmarshal(buf.Bytes(), &metric); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if metric.ID == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

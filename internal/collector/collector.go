@@ -61,10 +61,17 @@ func (c *collector) Restore(filePath string) error {
 }
 
 func (c *collector) Save(filePath string) error {
+	var saveError error
 	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err := file.Close(); err != nil {
+			saveError = err
+		}
+	}()
+
 	writer := bufio.NewWriter(file)
 	metricsData := c.encode()
 	data, err := json.Marshal(&metricsData)
@@ -80,16 +87,23 @@ func (c *collector) Save(filePath string) error {
 	if err := writer.Flush(); err != nil {
 		return err
 	}
-	return nil
+	return saveError
 }
 
 func (c *collector) CollectFromJSON(metric MetricJSON) error {
 	metricValue := ""
 	switch metric.MType {
 	case "counter":
+		if *metric.Delta < 0 {
+			return ErrBadRequest
+		}
 		metricValue = strconv.Itoa(int(*metric.Delta))
 	case "gauge":
+		if *metric.Value < 0 {
+			return ErrBadRequest
+		}
 		metricValue = fmt.Sprintf("%.11f", *metric.Value)
+
 	}
 
 	return c.Collect(metric.ID, metric.MType, metricValue)
@@ -131,13 +145,13 @@ func (c *collector) GetMetricJSON(metricName string, metricType string) ([]byte,
 func (c *collector) GetMetricByName(metricName string, metricType string) (string, error) {
 	switch metricType {
 	case "counter":
-		value, ok := Collector.storage.Counters[metricName]
+		value, ok := c.storage.Counters[metricName]
 		if !ok {
 			return "", ErrNotFound
 		}
 		return strconv.Itoa(value), nil
 	case "gauge":
-		value, ok := Collector.storage.Gauges[metricName]
+		value, ok := c.storage.Gauges[metricName]
 		if !ok {
 			return "", ErrNotFound
 		}
@@ -180,20 +194,4 @@ func (c *collector) encode() memStorage {
 
 func (c *collector) decode(encoded memStorage) {
 	c.storage = &encoded
-}
-
-type MetricJSON struct {
-	ID    string   `json:"id"`              // имя метрики
-	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
-	Delta *int64   `json:"delta,omitempty"` // значение метрики в случае передачи counter
-	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
-}
-
-type collector struct {
-	storage *memStorage
-}
-
-type memStorage struct {
-	Counters map[string]int
-	Gauges   map[string]string
 }

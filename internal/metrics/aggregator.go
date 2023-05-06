@@ -8,7 +8,7 @@ import (
 	"strconv"
 )
 
-func (a *aggregator) Aggregate() {
+func (a *Aggregator) Aggregate() {
 	metrics := runtime.MemStats{}
 	runtime.ReadMemStats(&metrics)
 
@@ -46,13 +46,13 @@ func (a *aggregator) Aggregate() {
 	collector.Collector.Collect("PollCount", "counter", strconv.Itoa(v+1))
 }
 
-func New(metricsCollector collectorImpl) *aggregator {
-	return &aggregator{
+func New(metricsCollector collectorImpl) *Aggregator {
+	return &Aggregator{
 		metricsCollector: metricsCollector,
 	}
 }
 
-type aggregator struct {
+type Aggregator struct {
 	metricsCollector collectorImpl
 }
 

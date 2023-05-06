@@ -15,10 +15,10 @@ const (
 	defaultRestore         bool   = true
 )
 
-type Option func(params2 *params)
+type Option func(params *Params)
 
 func WithAddr() Option {
-	return func(p *params) {
+	return func(p *Params) {
 		flag.StringVar(&p.FlagRunAddr, "a", defaultAddr, "address and port to run server")
 		if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 			p.FlagRunAddr = envRunAddr
@@ -27,7 +27,7 @@ func WithAddr() Option {
 }
 
 func WithReportInterval() Option {
-	return func(p *params) {
+	return func(p *Params) {
 		flag.IntVar(&p.ReportInterval, "r", defaultReportInterval, "report interval")
 		if envReportInterval := os.Getenv("REPORT_INTERVAL"); envReportInterval != "" {
 			reportIntervalEnv, err := strconv.Atoi(envReportInterval)
@@ -39,7 +39,7 @@ func WithReportInterval() Option {
 }
 
 func WithPollInterval() Option {
-	return func(p *params) {
+	return func(p *Params) {
 		flag.IntVar(&p.PollInterval, "p", defaultPollInterval, "poll interval")
 		if envPollInterval := os.Getenv("POLL_INTERVAL"); envPollInterval != "" {
 			pollIntervalEnv, err := strconv.Atoi(envPollInterval)
@@ -51,7 +51,7 @@ func WithPollInterval() Option {
 }
 
 func WithStoreInterval() Option {
-	return func(p *params) {
+	return func(p *Params) {
 		flag.IntVar(&p.StoreInterval, "i", defaultStoreInterval, "store interval in seconds")
 		if envStoreInterval := os.Getenv("STORE_INTERVAL"); envStoreInterval != "" {
 			storeIntervalEnv, err := strconv.Atoi(envStoreInterval)
@@ -63,7 +63,7 @@ func WithStoreInterval() Option {
 }
 
 func WithFileStoragePath() Option {
-	return func(p *params) {
+	return func(p *Params) {
 		flag.StringVar(&p.FileStoragePath, "f", defaultFileStoragePath, "file name for metrics collection")
 		if envFileStoragePath := os.Getenv("FILE_STORAGE_PATH"); envFileStoragePath != "" {
 			fileStoragePath, err := strconv.Atoi(envFileStoragePath)
@@ -75,7 +75,7 @@ func WithFileStoragePath() Option {
 }
 
 func WithRestore() Option {
-	return func(p *params) {
+	return func(p *Params) {
 		flag.BoolVar(&p.Restore, "r", defaultRestore, "restore data from file")
 		if envRestore := os.Getenv("RESTORE"); envRestore != "" {
 			restore, err := strconv.Atoi(envRestore)
@@ -86,8 +86,8 @@ func WithRestore() Option {
 	}
 }
 
-func Init(opts ...Option) *params {
-	p := &params{}
+func Init(opts ...Option) *Params {
+	p := &Params{}
 	for _, opt := range opts {
 		opt(p)
 	}
@@ -95,7 +95,7 @@ func Init(opts ...Option) *params {
 	return p
 }
 
-type params struct {
+type Params struct {
 	FlagRunAddr     string
 	ReportInterval  int
 	PollInterval    int
