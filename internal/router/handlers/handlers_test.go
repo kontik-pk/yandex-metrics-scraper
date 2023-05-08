@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
+	aggregator "github.com/kontik-pk/yandex-metrics-scraper/internal/metrics"
 	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
@@ -14,36 +15,46 @@ import (
 
 func TestSaveMetric(t *testing.T) {
 	r := chi.NewRouter()
-	//r.Use(log.RequestLogger)
-	//r.Use(compressor.Compress)
-	r.Post("/update/{type}/{name}/{value}", SaveMetric)
-	r.Get("/value/{type}/{name}", GetMetric)
-	r.Post("/update/", SaveMetricFromJSON)
-	r.Post("/value/", GetMetricFromJSON)
-	r.Get("/", ShowMetrics)
+	h := handler{}
+	r.Post("/update/{type}/{name}/{value}", h.SaveMetric)
+	r.Get("/value/{type}/{name}", h.GetMetric)
+	r.Post("/update/", h.SaveMetricFromJSON)
+	r.Post("/value/", h.GetMetricFromJSON)
+	r.Get("/", h.ShowMetrics)
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
 	testCases := []struct {
-		name          string
-		mType         string
-		mName         string
-		mValue        string
-		expectedCode  int
-		expectedError error
+		name           string
+		mType          string
+		mName          string
+		mValue         string
+		expectedCode   int
+		expectedMetric collector.MetricJSON
+		expectedError  error
 	}{
 		{
-			name:         "case0",
-			mType:        "counter",
-			mName:        "Counter1",
-			mValue:       "15",
+			name:   "case0",
+			mType:  "counter",
+			mName:  "Counter1",
+			mValue: "15",
+			expectedMetric: collector.MetricJSON{
+				ID:    "Counter1",
+				MType: "counter",
+				Delta: aggregator.PtrInt64(15),
+			},
 			expectedCode: http.StatusOK,
 		},
 		{
-			name:         "case1",
-			mType:        "gauge",
-			mName:        "Gauge1",
-			mValue:       "12.282",
+			name:   "case1",
+			mType:  "gauge",
+			mName:  "Gauge1",
+			mValue: "12.282",
+			expectedMetric: collector.MetricJSON{
+				ID:    "Gauge1",
+				MType: "gauge",
+				Value: aggregator.PtrFloat64(12.282),
+			},
 			expectedCode: http.StatusOK,
 		},
 		{
@@ -88,14 +99,14 @@ func TestSaveMetric(t *testing.T) {
 			assert.NoError(t, err, "error making HTTP request")
 			assert.Equal(t, resp.StatusCode(), tt.expectedCode)
 
-			value, err := collector.Collector.GetMetricByName(tt.mName, tt.mType)
+			value, err := collector.Collector.GetMetric(tt.mName)
 			if err != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {
 				assert.NoError(t, err)
 			}
 			if tt.expectedCode == http.StatusOK {
-				assert.Equal(t, value, tt.mValue)
+				assert.Equal(t, value, tt.expectedMetric)
 			}
 		})
 	}
@@ -103,13 +114,12 @@ func TestSaveMetric(t *testing.T) {
 
 func TestSaveMetricFromJSON(t *testing.T) {
 	r := chi.NewRouter()
-	//r.Use(log.RequestLogger)
-	//r.Use(compressor.Compress)
-	r.Post("/update/{type}/{name}/{value}", SaveMetric)
-	r.Get("/value/{type}/{name}", GetMetric)
-	r.Post("/update/", SaveMetricFromJSON)
-	r.Post("/value/", GetMetricFromJSON)
-	r.Get("/", ShowMetrics)
+	h := handler{}
+	r.Post("/update/{type}/{name}/{value}", h.SaveMetric)
+	r.Get("/value/{type}/{name}", h.GetMetric)
+	r.Post("/update/", h.SaveMetricFromJSON)
+	r.Post("/value/", h.GetMetricFromJSON)
+	r.Get("/", h.ShowMetrics)
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
@@ -180,7 +190,7 @@ func TestSaveMetricFromJSON(t *testing.T) {
 			assert.NoError(t, err, "error making HTTP request")
 			assert.Equal(t, resp.StatusCode(), tt.expectedCode)
 
-			value, err := collector.Collector.GetMetricJSON(tt.mName, tt.mType)
+			value, err := collector.Collector.GetMetricJSON(tt.mName)
 			if err != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {
@@ -195,12 +205,6 @@ func TestSaveMetricFromJSON(t *testing.T) {
 				Delta: &tt.mDelta,
 				Value: &tt.mValue,
 			}
-			if tt.mValue == 0 {
-				expected.Value = nil
-			}
-			if tt.mDelta == 0 {
-				expected.Delta = nil
-			}
 			if tt.expectedCode == http.StatusOK {
 				assert.Equal(t, actual, expected)
 			}
@@ -210,8 +214,9 @@ func TestSaveMetricFromJSON(t *testing.T) {
 
 func TestGetMetric(t *testing.T) {
 	r := chi.NewRouter()
-	r.Post("/update/{type}/{name}/{value}", SaveMetric)
-	r.Get("/value/{type}/{name}", GetMetric)
+	h := handler{}
+	r.Post("/update/{type}/{name}/{value}", h.SaveMetric)
+	r.Get("/value/{type}/{name}", h.GetMetric)
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
@@ -259,21 +264,21 @@ func TestGetMetric(t *testing.T) {
 			name:         "case2",
 			mType:        "gauge",
 			mName:        "Gauge1",
-			mValue:       "100500.2780001",
+			mValue:       "100500.278",
 			expectedCode: http.StatusOK,
 		},
 		{
 			name:         "case3",
 			mType:        "gauge",
 			mName:        "Gauge2",
-			mValue:       "100500.278000100",
+			mValue:       "100500.278",
 			expectedCode: http.StatusOK,
 		},
 		{
 			name:         "case4",
 			mType:        "gauge",
 			mName:        "Gauge3",
-			mValue:       "100500",
+			mValue:       "100500.000",
 			expectedCode: http.StatusOK,
 		},
 		{
@@ -284,11 +289,11 @@ func TestGetMetric(t *testing.T) {
 			expectedCode: http.StatusNotFound,
 		},
 		{
-			name:         "case5",
+			name:         "case6",
 			mType:        "invalid",
 			mName:        "Gauge4",
 			mValue:       "",
-			expectedCode: http.StatusNotImplemented,
+			expectedCode: http.StatusBadRequest,
 		},
 	}
 	for _, tt := range testCases {
@@ -306,8 +311,9 @@ func TestGetMetric(t *testing.T) {
 
 func TestGetMetricFromJSON(t *testing.T) {
 	r := chi.NewRouter()
-	r.Post("/update/{type}/{name}/{value}", SaveMetric)
-	r.Post("/value/", GetMetricFromJSON)
+	h := handler{}
+	r.Post("/update/{type}/{name}/{value}", h.SaveMetric)
+	r.Post("/value/", h.GetMetricFromJSON)
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 
@@ -395,8 +401,9 @@ func TestGetMetricFromJSON(t *testing.T) {
 
 func TestShowMetrics(t *testing.T) {
 	r := chi.NewRouter()
-	r.Post("/update/{type}/{name}/{value}", SaveMetric)
-	r.Get("/", ShowMetrics)
+	h := handler{}
+	r.Post("/update/{type}/{name}/{value}", h.SaveMetric)
+	r.Get("/", h.ShowMetrics)
 	srv := httptest.NewServer(r)
 	defer srv.Close()
 

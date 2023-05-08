@@ -8,10 +8,5 @@ type MetricJSON struct {
 }
 
 type collector struct {
-	storage *memStorage
-}
-
-type memStorage struct {
-	Counters map[string]int
-	Gauges   map[string]string
+	Metrics []MetricJSON
 }

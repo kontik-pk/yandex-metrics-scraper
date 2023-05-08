@@ -10,12 +10,21 @@ const (
 	defaultAddr            string = "localhost:8080"
 	defaultReportInterval  int    = 10
 	defaultPollInterval    int    = 2
-	defaultStoreInterval   int    = 300
+	defaultStoreInterval   int    = 30
 	defaultFileStoragePath string = "/tmp/metrics-db.json"
 	defaultRestore         bool   = true
 )
 
 type Option func(params *Params)
+
+func WithDatabase() Option {
+	return func(p *Params) {
+		flag.StringVar(&p.DatabaseAddress, "d", defaultAddr, "connection string for db")
+		if envDbAddr := os.Getenv("DATABASE_DSN"); envDbAddr != "" {
+			p.DatabaseAddress = envDbAddr
+		}
+	}
+}
 
 func WithAddr() Option {
 	return func(p *Params) {
@@ -97,6 +106,7 @@ func Init(opts ...Option) *Params {
 
 type Params struct {
 	FlagRunAddr     string
+	DatabaseAddress string
 	ReportInterval  int
 	PollInterval    int
 	StoreInterval   int

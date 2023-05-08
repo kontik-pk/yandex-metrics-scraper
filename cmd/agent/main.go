@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/avast/retry-go"
 	"github.com/go-resty/resty/v2"
@@ -46,16 +47,10 @@ func send(client *resty.Client, reportTimeout int, addr string) error {
 		SetHeader("Content-Encoding", "gzip")
 
 	for {
-		for n, v := range collector.Collector.GetCounters() {
-			jsonInput := fmt.Sprintf(`{"id":%q, "type":"counter", "delta": %s}`, n, v)
-			if err := sendRequest(req, jsonInput, addr); err != nil {
+		for _, v := range collector.Collector.Metrics {
+			jsonInput, _ := json.Marshal(v)
+			if err := sendRequest(req, string(jsonInput), addr); err != nil {
 				return fmt.Errorf("error while sending agent request for counter metric: %w", err)
-			}
-		}
-		for n, v := range collector.Collector.GetGauges() {
-			jsonInput := fmt.Sprintf(`{"id":%q, "type":"gauge", "value": %s}`, n, v)
-			if err := sendRequest(req, jsonInput, addr); err != nil {
-				return fmt.Errorf("error while sending agent request for gauge metric: %w", err)
 			}
 		}
 		time.Sleep(time.Duration(reportTimeout) * time.Second)
