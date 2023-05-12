@@ -19,19 +19,27 @@ func (m *manager) Restore(ctx context.Context) ([]collector.MetricJSON, error) {
 	var metrics []collector.MetricJSON
 	for rows.Next() {
 		var (
-			id     string
-			mtype  string
-			delta  int64
-			mvalue float64
+			id          string
+			mtype       string
+			deltaFromDB sql.NullInt64
+			valueFromDB sql.NullFloat64
 		)
-		if err := rows.Scan(&id, &mtype, &delta, &mvalue); err != nil {
+		if err := rows.Scan(&id, &mtype, &deltaFromDB, &valueFromDB); err != nil {
 			return nil, err
+		}
+		var delta *int64
+		if deltaFromDB.Valid {
+			delta = &deltaFromDB.Int64
+		}
+		var mvalue *float64
+		if valueFromDB.Valid {
+			mvalue = &valueFromDB.Float64
 		}
 		metric := collector.MetricJSON{
 			ID:    id,
 			MType: mtype,
-			Delta: &delta,
-			Value: &mvalue,
+			Delta: delta,
+			Value: mvalue,
 		}
 		metrics = append(metrics, metric)
 	}
@@ -70,7 +78,6 @@ func New(params *flags.Params) (*manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
 
 	m := manager{
 		db: db,

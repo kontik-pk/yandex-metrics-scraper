@@ -39,7 +39,7 @@ func main() {
 
 	// init restorer
 	var saver saver
-	if params.FileStoragePath != "" {
+	if params.FileStoragePath != "" && params.DatabaseAddress == "" {
 		saver = file.New(params)
 	} else if params.DatabaseAddress != "" {
 		saver, err = database.New(params)
@@ -50,12 +50,13 @@ func main() {
 
 	// restore previous metrics if needed
 	ctx := context.Background()
-	if params.Restore {
+	if params.Restore && (params.FileStoragePath != "" || params.DatabaseAddress != "") {
 		metrics, err := saver.Restore(ctx)
 		if err != nil {
 			log.SugarLogger.Error(err.Error(), "restore error")
 		}
 		collector.Collector.Metrics = metrics
+		log.SugarLogger.Info("metrics restored")
 	}
 
 	// regularly save metrics if needed
@@ -70,7 +71,7 @@ func main() {
 }
 
 func saveMetrics(ctx context.Context, saver saver, interval int) {
-	ticker := time.NewTicker(time.Duration(interval) * time.Second)
+	ticker := time.NewTicker(time.Duration(interval))
 	for {
 		select {
 		case <-ctx.Done():
@@ -78,8 +79,6 @@ func saveMetrics(ctx context.Context, saver saver, interval int) {
 		case <-ticker.C:
 			if err := saver.Save(ctx, collector.Collector.Metrics); err != nil {
 				log.SugarLogger.Error(err.Error(), "save error")
-			} else {
-				log.SugarLogger.Info("successfully saved metrics")
 			}
 		}
 	}

@@ -9,10 +9,10 @@ func main() {
 	client := resty.New()
 	req := client.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(fmt.Sprintf(`{"id": "c", "type": "counter", "delta": 7, "value": }`))
-	r, err := req.Post("http://127.0.0.1:8080/update/")
+		SetBody(fmt.Sprintf(`[{"id": "c", "type": "counter", "delta": 7 }]`))
+	r, err := req.Post("http://127.0.0.1:8080/updates/")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(string(r.Body()))
+	fmt.Println(string(r.Status()))
 }
