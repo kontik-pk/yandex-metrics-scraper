@@ -11,7 +11,7 @@ const (
 	defaultReportInterval  int    = 10
 	defaultPollInterval    int    = 2
 	defaultStoreInterval   int    = 30
-	defaultFileStoragePath string = "/tmp/metrics-db.json"
+	defaultFileStoragePath string = "/tmp/short-url-db.json"
 	defaultRestore         bool   = true
 )
 
@@ -19,7 +19,7 @@ type Option func(params *Params)
 
 func WithDatabase() Option {
 	return func(p *Params) {
-		flag.StringVar(&p.DatabaseAddress, "d", defaultAddr, "connection string for db")
+		flag.StringVar(&p.DatabaseAddress, "d", "", "connection string for db")
 		if envDbAddr := os.Getenv("DATABASE_DSN"); envDbAddr != "" {
 			p.DatabaseAddress = envDbAddr
 		}

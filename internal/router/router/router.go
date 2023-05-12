@@ -20,6 +20,7 @@ func New(params flags.Params) *chi.Mux {
 	r.Get("/value/{type}/{name}", handler.GetMetric)
 	r.Get("/", handler.ShowMetrics)
 	r.Get("/ping", handler.Ping)
+	r.Post("/updates/", handler.SaveListMetricsFromJSON)
 
 	return r
 }

@@ -124,6 +124,62 @@ func (h *handler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *handler) SaveListMetricsFromJSON(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r.Body); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var metrics []collector.MetricJSON
+	if err := json.Unmarshal(buf.Bytes(), &metrics); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	var results []byte
+	for _, metric := range metrics {
+		if metric.ID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		err := collector.Collector.Collect(metric)
+		if errors.Is(err, collector.ErrBadRequest) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, collector.ErrNotImplemented) {
+			w.WriteHeader(http.StatusNotImplemented)
+			return
+		}
+
+		resultJSON, err := collector.Collector.GetMetricJSON(metric.ID)
+		if errors.Is(err, collector.ErrBadRequest) {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		if errors.Is(err, collector.ErrNotFound) {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, collector.ErrNotImplemented) {
+			w.WriteHeader(http.StatusNotImplemented)
+			return
+		}
+		results = append(results, resultJSON...)
+	}
+	if _, err := w.Write(results); err != nil {
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *handler) GetMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(r.Body); err != nil {
