@@ -90,7 +90,6 @@ func Compress(h http.Handler) http.Handler {
 			defer cr.Close()
 		} else if supportsGzip && !sendsGzip {
 			cw := NewCompressWriter(w)
-
 			ow = cw
 			ow.Header().Set("Content-Encoding", "gzip")
 			defer cw.Close()

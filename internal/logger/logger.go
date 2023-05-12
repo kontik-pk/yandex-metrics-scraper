@@ -12,10 +12,7 @@ func RequestLogger(h http.Handler) http.Handler {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		rd := &responseData{
-			status: 0,
-			size:   0,
-		}
+		rd := &responseData{}
 		lw := loggingResponseWriter{
 			ResponseWriter: w, // встраиваем оригинальный http.ResponseWriter
 			responseData:   rd,
@@ -30,7 +27,6 @@ func RequestLogger(h http.Handler) http.Handler {
 			"duration", duration,
 			"size", rd.size, // получаем перехваченный размер ответа
 			"request headers", r.Header,
-			"request body", r.Body,
 			"responce headers", w.Header(),
 		)
 		w.Header().Set("content-type", "Content-Type: application/json")

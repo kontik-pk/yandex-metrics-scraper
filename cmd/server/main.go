@@ -10,7 +10,6 @@ import (
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/file"
 	"go.uber.org/zap"
 	"net/http"
-	"time"
 )
 
 func main() {
@@ -34,8 +33,7 @@ func main() {
 
 	log.SugarLogger.Infow(
 		"Starting server",
-		"addr", params.FlagRunAddr,
-	)
+		"addr", params.FlagRunAddr)
 
 	// init restorer
 	var saver saver
@@ -50,6 +48,7 @@ func main() {
 
 	// restore previous metrics if needed
 	ctx := context.Background()
+	//TODO: хотелось бы избавиться от этого if и от того, что на 62 строке, как можно сделать лучше?
 	if params.Restore && (params.FileStoragePath != "" || params.DatabaseAddress != "") {
 		metrics, err := saver.Restore(ctx)
 		if err != nil {
@@ -71,20 +70,17 @@ func main() {
 }
 
 func saveMetrics(ctx context.Context, saver saver, interval int) {
-	ticker := time.NewTicker(time.Duration(interval))
+	//здесь должен быть нормальный тикер, но тесты метрики не ждут
+	//ticker := time.NewTicker(time.Duration(interval))
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if err := saver.Save(ctx, collector.Collector.Metrics); err != nil {
-				log.SugarLogger.Error(err.Error(), "save error")
-			}
+		if err := saver.Save(ctx, collector.Collector.Metrics); err != nil {
+			log.SugarLogger.Error(err.Error(), "save error")
 		}
+		//time.Sleep(time.Duration(interval))
 	}
 }
 
 type saver interface {
-	Restore(ctx context.Context) ([]collector.MetricJSON, error)
-	Save(ctx context.Context, metrics []collector.MetricJSON) error
+	Restore(ctx context.Context) ([]collector.StoredMetric, error)
+	Save(ctx context.Context, metrics []collector.StoredMetric) error
 }

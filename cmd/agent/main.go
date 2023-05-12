@@ -18,46 +18,60 @@ import (
 
 func main() {
 	params := flags.Init(flags.WithPollInterval(), flags.WithReportInterval(), flags.WithAddr())
-	ctx := context.Background()
 
-	errs, _ := errgroup.WithContext(ctx)
+	aggTicker := time.NewTicker(time.Duration(params.PollInterval) * time.Second)
+	errs, ctx := errgroup.WithContext(context.Background())
 	errs.Go(func() error {
 		agg := aggregator.New(&collector.Collector)
 		for {
-			agg.Aggregate()
-			time.Sleep(time.Duration(params.PollInterval) * time.Second)
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-aggTicker.C:
+				agg.Aggregate()
+			}
 		}
 	})
 
+	reportTicker := time.NewTicker(time.Duration(params.ReportInterval) * time.Second)
 	client := resty.New()
 	errs.Go(func() error {
-		if err := send(client, params.ReportInterval, params.FlagRunAddr); err != nil {
-			log.Fatalln(err)
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-reportTicker.C:
+				if err := sendMetrics(client, params.FlagRunAddr); err != nil {
+					return err
+				}
+			}
 		}
-		return nil
 	})
 
 	_ = errs.Wait()
 }
 
-func send(client *resty.Client, reportTimeout int, addr string) error {
+func sendMetrics(client *resty.Client, addr string) error {
 	req := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("Content-Encoding", "gzip")
 
-	for {
-		for _, v := range collector.Collector.Metrics {
-			jsonInput, _ := json.Marshal(v)
-			if err := sendRequest(req, string(jsonInput), addr); err != nil {
-				return fmt.Errorf("error while sending agent request for counter metric: %w", err)
-			}
+	for _, v := range collector.Collector.Metrics {
+		jsonInput, _ := json.Marshal(collector.MetricRequest{
+			ID:    v.ID,
+			MType: v.MType,
+			Delta: v.CounterValue,
+			Value: v.GaugeValue,
+		})
+		if err := sendRequestsWithRetries(req, string(jsonInput), addr); err != nil {
+			return fmt.Errorf("error while sending agent request for counter metric: %w", err)
 		}
-		time.Sleep(time.Duration(reportTimeout) * time.Second)
 	}
+	return nil
 }
 
-func sendRequest(req *resty.Request, jsonInput string, addr string) error {
+func sendRequestsWithRetries(req *resty.Request, jsonInput string, addr string) error {
 	buf := bytes.NewBuffer(nil)
 	zb := gzip.NewWriter(buf)
 	if _, err := zb.Write([]byte(jsonInput)); err != nil {
@@ -67,10 +81,9 @@ func sendRequest(req *resty.Request, jsonInput string, addr string) error {
 		return fmt.Errorf("error while trying to close writer: %w", err)
 	}
 
-	err := retry.Do(
+	if err := retry.Do(
 		func() error {
-			var err error
-			if _, err = req.SetBody(buf).Post(fmt.Sprintf("http://%s/update/", addr)); err != nil {
+			if _, err := req.SetBody(buf).Post(fmt.Sprintf("http://%s/update/", addr)); err != nil {
 				return fmt.Errorf("error while trying to create post request: %w", err)
 			}
 			return nil
@@ -79,8 +92,7 @@ func sendRequest(req *resty.Request, jsonInput string, addr string) error {
 		retry.OnRetry(func(n uint, err error) {
 			log.Printf("Retrying request after error: %v", err)
 		}),
-	)
-	if err != nil {
+	); err != nil {
 		return fmt.Errorf("error while trying to connect to server: %w", err)
 	}
 	return nil

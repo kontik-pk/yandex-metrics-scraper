@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-func (m *manager) Restore(ctx context.Context) ([]collector.MetricJSON, error) {
+func (m *manager) Restore(ctx context.Context) ([]collector.StoredMetric, error) {
 	file, err := os.OpenFile(m.fileName, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return nil, err
@@ -21,14 +21,14 @@ func (m *manager) Restore(ctx context.Context) ([]collector.MetricJSON, error) {
 	}
 
 	data := scanner.Bytes()
-	var metricsFromFile []collector.MetricJSON
+	var metricsFromFile []collector.StoredMetric
 	if err = json.Unmarshal(data, &metricsFromFile); err != nil {
 		return nil, err
 	}
 	return metricsFromFile, nil
 }
 
-func (m *manager) Save(ctx context.Context, metrics []collector.MetricJSON) error {
+func (m *manager) Save(ctx context.Context, metrics []collector.StoredMetric) error {
 	var saveError error
 	file, err := os.OpenFile(m.fileName, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
