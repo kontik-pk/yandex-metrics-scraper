@@ -27,6 +27,7 @@ func main() {
 		flags.WithFileStoragePath(),
 		flags.WithRestore(),
 		flags.WithDatabase(),
+		flags.WithKey(),
 	)
 
 	r := router.New(*params)

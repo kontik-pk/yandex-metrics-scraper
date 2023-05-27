@@ -9,7 +9,7 @@ import (
 )
 
 func New(params flags.Params) *chi.Mux {
-	handler := handlers.New(params.DatabaseAddress)
+	handler := handlers.New(params.DatabaseAddress, params.Key)
 
 	r := chi.NewRouter()
 	r.Use(log.RequestLogger)

@@ -17,6 +17,15 @@ const (
 
 type Option func(params *Params)
 
+func WithKey() Option {
+	return func(p *Params) {
+		flag.StringVar(&p.Key, "k", "", "key for using hash subscription")
+		if envKey := os.Getenv("KEY"); envKey != "" {
+			p.Key = envKey
+		}
+	}
+}
+
 func WithDatabase() Option {
 	return func(p *Params) {
 		result := ""
@@ -114,4 +123,5 @@ type Params struct {
 	StoreInterval   int
 	FileStoragePath string
 	Restore         bool
+	Key             string
 }
