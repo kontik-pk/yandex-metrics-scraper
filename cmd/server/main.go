@@ -10,12 +10,13 @@ import (
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/file"
 	"go.uber.org/zap"
 	"net/http"
+	"os"
 )
 
 func main() {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
-		panic(err)
+		os.Exit(1)
 	}
 	defer logger.Sync()
 

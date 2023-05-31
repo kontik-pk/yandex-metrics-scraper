@@ -12,13 +12,13 @@ import (
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	aggregator "github.com/kontik-pk/yandex-metrics-scraper/internal/metrics"
+	"go.uber.org/zap"
 	"log"
 	"time"
 )
 
-func (a *Agent) CollectMetrics(ctx context.Context) error {
+func (a *Agent) CollectMetrics(ctx context.Context) (err error) {
 	aggTicker := time.NewTicker(time.Duration(a.params.PollInterval) * time.Second)
-	var err error
 	go func() {
 		for {
 			select {
@@ -47,17 +47,30 @@ func (a *Agent) CollectMetrics(ctx context.Context) error {
 }
 
 func (a *Agent) SendMetrics(ctx context.Context) error {
+	numRequests := make(chan struct{}, a.params.RateLimit)
 	reportTicker := time.NewTicker(time.Duration(a.params.ReportInterval) * time.Second)
 	client := resty.New()
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
+		// check if time to send metrics on server
 		case <-reportTicker.C:
-			if err := a.sendMetrics(client); err != nil {
-				return err
+			select {
+			case <-ctx.Done():
+				return nil
+			// check if the rate limit is exceeded
+			case numRequests <- struct{}{}:
+				a.log.Info("metrics sent on server")
+				if err := a.sendMetrics(client); err != nil {
+					return err
+				}
+			default:
+				a.log.Info("rate limit is exceeded")
 			}
 		}
+		// release the request pool for one
+		<-numRequests
 	}
 }
 
@@ -115,14 +128,16 @@ func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string) er
 	return nil
 }
 
-func New(params *flags.Params, aggregator *aggregator.Aggregator) *Agent {
+func New(params *flags.Params, aggregator *aggregator.Aggregator, log zap.SugaredLogger) *Agent {
 	return &Agent{
 		params:     params,
 		aggregator: aggregator,
+		log:        log,
 	}
 }
 
 type Agent struct {
 	params     *flags.Params
 	aggregator *aggregator.Aggregator
+	log        zap.SugaredLogger
 }
