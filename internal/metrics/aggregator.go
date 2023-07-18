@@ -59,17 +59,17 @@ func (a *Aggregator) AggregateGopsutilMetrics() {
 	a.metricsCollector.UpsertMetric(collector.StoredMetric{ID: "CPUutilization1", MType: "gauge", GaugeValue: collector.PtrFloat64(cp[0]), TextValue: collector.PtrString(strconv.FormatFloat(cp[0], 'f', 11, 64))})
 }
 
-func New(metricsCollector collectorImpl) *Aggregator {
+func New(metricsCollector metricsCollector) *Aggregator {
 	return &Aggregator{
 		metricsCollector: metricsCollector,
 	}
 }
 
 type Aggregator struct {
-	metricsCollector collectorImpl
+	metricsCollector metricsCollector
 }
 
-type collectorImpl interface {
+type metricsCollector interface {
 	UpsertMetric(metric collector.StoredMetric)
 	GetMetric(metricName string) (collector.StoredMetric, error)
 }
