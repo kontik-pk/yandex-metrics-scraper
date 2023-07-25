@@ -9,6 +9,7 @@ import (
 	"strconv"
 )
 
+// AggregateRuntimeMetrics - a method for capturing and upserting runtime metrics.
 func (a *Aggregator) AggregateRuntimeMetrics() {
 	metrics := runtime.MemStats{}
 	runtime.ReadMemStats(&metrics)
@@ -51,6 +52,7 @@ func (a *Aggregator) AggregateRuntimeMetrics() {
 	a.metricsCollector.UpsertMetric(collector.StoredMetric{ID: "PollCount", MType: "counter", CounterValue: collector.PtrInt64(counter), TextValue: collector.PtrString(strconv.Itoa(int(counter)))})
 }
 
+// AggregateGopsutilMetrics - a method for capturing and upserting gopsutil metrics.
 func (a *Aggregator) AggregateGopsutilMetrics() {
 	v, _ := mem.VirtualMemory()
 	cp, _ := cpu.Percent(0, false)
@@ -65,6 +67,8 @@ func New(metricsCollector metricsCollector) *Aggregator {
 	}
 }
 
+// Aggregator get metrics from runtime and gopsutil and upsert it
+// to the metricsCollector.
 type Aggregator struct {
 	metricsCollector metricsCollector
 }

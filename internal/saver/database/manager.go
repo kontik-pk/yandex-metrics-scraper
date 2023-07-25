@@ -5,11 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	"time"
 )
 
-func (m *manager) Restore(ctx context.Context) ([]collector.StoredMetric, error) {
+// Restore - a method for restoring metrics state from DB.
+func (m *Manager) Restore(ctx context.Context) ([]collector.StoredMetric, error) {
 	const query = `select id, mtype, delta, mvalue from metrics`
 	rows, err := m.db.QueryContext(ctx, query)
 	if err != nil {
@@ -50,7 +50,8 @@ func (m *manager) Restore(ctx context.Context) ([]collector.StoredMetric, error)
 	return metrics, nil
 }
 
-func (m *manager) Save(ctx context.Context, metrics []collector.StoredMetric) error {
+// Save - a method for saving metric state to the DB.
+func (m *Manager) Save(ctx context.Context, metrics []collector.StoredMetric) error {
 	retries := []time.Duration{1 * time.Second, 3 * time.Second, 5 * time.Second}
 	for _, metric := range metrics {
 		switch metric.MType {
@@ -86,7 +87,8 @@ func (m *manager) Save(ctx context.Context, metrics []collector.StoredMetric) er
 	return nil
 }
 
-func (m *manager) init(ctx context.Context) error {
+// init - a method for preparing new DB for storing metrics.
+func (m *Manager) init(ctx context.Context) error {
 	const query = `create table if not exists metrics (id text primary key, mtype text, delta bigint, mvalue double precision)`
 	if _, err := m.db.ExecContext(ctx, query); err != nil {
 		return fmt.Errorf("error while trying to create table: %w", err)
@@ -94,14 +96,9 @@ func (m *manager) init(ctx context.Context) error {
 	return nil
 }
 
-func New(params *flags.Params) (*manager, error) {
+func New(db *sql.DB) (*Manager, error) {
 	ctx := context.Background()
-	db, err := sql.Open("pgx", params.DatabaseAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	m := manager{
+	m := Manager{
 		db: db,
 	}
 	if err := m.init(ctx); err != nil {
@@ -110,6 +107,6 @@ func New(params *flags.Params) (*manager, error) {
 	return &m, nil
 }
 
-type manager struct {
+type Manager struct {
 	db *sql.DB
 }

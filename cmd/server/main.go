@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	log "github.com/kontik-pk/yandex-metrics-scraper/internal/logger"
@@ -10,8 +11,11 @@ import (
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/file"
 	"go.uber.org/zap"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 )
+
+const pprofAddr string = ":90"
 
 func main() {
 	logger, err := zap.NewDevelopment()
@@ -40,9 +44,14 @@ func main() {
 	// init restorer
 	var saver saver
 	if params.FileStoragePath != "" && params.DatabaseAddress == "" {
-		saver = file.New(params)
+		saver = file.New(params.FileStoragePath)
 	} else if params.DatabaseAddress != "" {
-		saver, err = database.New(params)
+		db, err := sql.Open("pgx", params.DatabaseAddress)
+		if err != nil {
+			log.SugarLogger.Error(err.Error(), "open db error")
+			os.Exit(1)
+		}
+		saver, err = database.New(db)
 		if err != nil {
 			log.SugarLogger.Errorf(err.Error())
 		}
@@ -65,6 +74,9 @@ func main() {
 		go saveMetrics(ctx, saver, params.StoreInterval)
 	}
 
+	//if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+	//	log.SugarLogger.Fatalw(err.Error(), "pprof", "start pprof server")
+	//}
 	// run server
 	if err := http.ListenAndServe(params.FlagRunAddr, r); err != nil {
 		log.SugarLogger.Fatalw(err.Error(), "event", "start server")

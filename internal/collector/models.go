@@ -5,6 +5,7 @@ const (
 	Gauge   = "gauge"
 )
 
+// MetricRequest - a struct of metric request for upserting from the http request.
 type MetricRequest struct {
 	ID    string   `json:"id"`              // имя метрики
 	MType string   `json:"type"`            // параметр, принимающий значение gauge или counter
@@ -12,6 +13,7 @@ type MetricRequest struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
+// StoredMetric - a struct for storing metrics on the server.
 type StoredMetric struct {
 	ID           string   `json:"id"`                      // имя метрики
 	MType        string   `json:"type"`                    // параметр, принимающий значение gauge или counter

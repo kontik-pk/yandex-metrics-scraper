@@ -16,6 +16,8 @@ var Collector = collector{
 	Metrics: make([]StoredMetric, 0),
 }
 
+// GetMetric - a method for gettong metric value by metric name.
+// Returns the struct of type StoredMetric
 func (c *collector) GetMetric(metricName string) (StoredMetric, error) {
 	for _, m := range c.Metrics {
 		if m.ID == metricName {
@@ -25,6 +27,8 @@ func (c *collector) GetMetric(metricName string) (StoredMetric, error) {
 	return StoredMetric{}, ErrNotFound
 }
 
+// GetMetricJSON - a metric for getting metric value by metric name.
+// Returns the json.
 func (c *collector) GetMetricJSON(metricName string) ([]byte, error) {
 	for _, m := range c.Metrics {
 		if m.ID == metricName {
@@ -38,14 +42,17 @@ func (c *collector) GetMetricJSON(metricName string) ([]byte, error) {
 	return nil, ErrNotFound
 }
 
+// GetAvailableMetrics - a method for getting all metrics names from
+// the server. Returns the list of strings.
 func (c *collector) GetAvailableMetrics() []string {
-	names := make([]string, 0)
+	names := make([]string, 0, len(c.Metrics))
 	for _, m := range c.Metrics {
 		names = append(names, m.ID)
 	}
 	return names
 }
 
+// UpsertMetric - a method for upserting new metric.
 func (c *collector) UpsertMetric(metric StoredMetric) {
 	for i, m := range c.Metrics {
 		if m.ID == metric.ID {
@@ -56,6 +63,7 @@ func (c *collector) UpsertMetric(metric StoredMetric) {
 	c.Metrics = append(c.Metrics, metric)
 }
 
+// Collect - a method for upserting metric from the MetricRequest.
 func (c *collector) Collect(metric MetricRequest, metricValue string) error {
 	if (metric.Delta != nil && *metric.Delta < 0) || (metric.Value != nil && *metric.Value < 0) || metric.ID == "" {
 		return ErrBadRequest
@@ -76,25 +84,23 @@ func (c *collector) Collect(metric MetricRequest, metricValue string) error {
 		if v.CounterValue != nil {
 			value = value + int(*v.CounterValue)
 		}
-		metricToStore := StoredMetric{
+		c.UpsertMetric(StoredMetric{
 			ID:           metric.ID,
 			MType:        metric.MType,
 			CounterValue: PtrInt64(int64(value)),
 			TextValue:    PtrString(strconv.Itoa(value)),
-		}
-		c.UpsertMetric(metricToStore)
+		})
 	case Gauge:
 		value, err := strconv.ParseFloat(metricValue, 64)
 		if err != nil {
 			return ErrBadRequest
 		}
-		metricToStore := StoredMetric{
+		c.UpsertMetric(StoredMetric{
 			ID:         metric.ID,
 			MType:      metric.MType,
 			GaugeValue: &value,
 			TextValue:  &metricValue,
-		}
-		c.UpsertMetric(metricToStore)
+		})
 	default:
 		return ErrNotImplemented
 	}

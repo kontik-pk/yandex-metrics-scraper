@@ -1,3 +1,6 @@
+// Package agent
+// Модуль agent собирает определенный набор runtime и gopsutil
+// метрик и отправляет их на сервер.
 package agent
 
 import (
@@ -17,6 +20,7 @@ import (
 	"time"
 )
 
+// CollectMetrics - method for capturing runtime and gopsutil metrics.
 func (a *Agent) CollectMetrics(ctx context.Context) (err error) {
 	aggTicker := time.NewTicker(time.Duration(a.params.PollInterval) * time.Second)
 	go func() {
@@ -46,6 +50,7 @@ func (a *Agent) CollectMetrics(ctx context.Context) (err error) {
 	return err
 }
 
+// SendMetrics - a method for sending metrics to the server by timer
 func (a *Agent) SendMetrics(ctx context.Context) error {
 	numRequests := make(chan struct{}, a.params.RateLimit)
 	reportTicker := time.NewTicker(time.Duration(a.params.ReportInterval) * time.Second)
@@ -74,6 +79,7 @@ func (a *Agent) SendMetrics(ctx context.Context) error {
 	}
 }
 
+// sendMetrics - a method that encapsulates the logic for sending a http request to the server.
 func (a *Agent) sendMetrics(client *resty.Client) error {
 	req := client.R().
 		SetHeader("Content-Type", "application/json").
@@ -101,6 +107,7 @@ func (a *Agent) sendMetrics(client *resty.Client) error {
 	return nil
 }
 
+// sendMetrics - a method that implements the logic for sending a request with retries.
 func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string) error {
 	buf := bytes.NewBuffer(nil)
 	zb := gzip.NewWriter(buf)
