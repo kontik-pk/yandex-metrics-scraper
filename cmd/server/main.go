@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	log "github.com/kontik-pk/yandex-metrics-scraper/internal/logger"
@@ -12,7 +13,6 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	_ "net/http/pprof"
-	"os"
 )
 
 const pprofAddr string = ":90"
@@ -20,7 +20,8 @@ const pprofAddr string = ":90"
 func main() {
 	logger, err := zap.NewDevelopment()
 	if err != nil {
-		os.Exit(1)
+		fmt.Println("error while creating logger, exit")
+		return
 	}
 	defer logger.Sync()
 
@@ -49,7 +50,7 @@ func main() {
 		db, err := sql.Open("pgx", params.DatabaseAddress)
 		if err != nil {
 			log.SugarLogger.Error(err.Error(), "open db error")
-			os.Exit(1)
+			return
 		}
 		saver, err = database.New(db)
 		if err != nil {
