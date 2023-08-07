@@ -6,12 +6,14 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
+// ExitFromMainAnalyzer is an analyzer of using `os.Exit` in main functions of package main.
 var ExitFromMainAnalyzer = &analysis.Analyzer{
 	Name: "exitcheck",
 	Doc:  "check for os.Exit from main functions of package main",
 	Run:  run,
 }
 
+// run is a function for analyzing the code for the presence of `os.Exit`.
 func run(pass *analysis.Pass) (interface{}, error) {
 	for _, file := range pass.Files {
 		// интересуют только пакеты main

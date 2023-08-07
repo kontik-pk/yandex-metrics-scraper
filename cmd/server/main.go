@@ -15,6 +15,7 @@ import (
 	_ "net/http/pprof"
 )
 
+//go:generate go run ../enum.go
 const pprofAddr string = ":90"
 
 func main() {

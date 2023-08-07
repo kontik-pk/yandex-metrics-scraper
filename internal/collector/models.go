@@ -22,6 +22,7 @@ type StoredMetric struct {
 	TextValue    *string  `json:"text_value,omitempty"`
 }
 
+// collector is the object for storing metrics in memory
 type collector struct {
 	Metrics []StoredMetric
 }

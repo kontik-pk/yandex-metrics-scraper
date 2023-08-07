@@ -12,6 +12,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+//go:generate go run ../enum.go
+
 func main() {
 	params := flags.Init(
 		flags.WithPollInterval(),

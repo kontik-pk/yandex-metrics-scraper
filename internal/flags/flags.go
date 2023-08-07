@@ -124,14 +124,15 @@ func Init(opts ...Option) *Params {
 	return p
 }
 
+// Params is a struct for storing run parameters
 type Params struct {
-	FlagRunAddr     string
-	DatabaseAddress string
-	ReportInterval  int
-	PollInterval    int
-	StoreInterval   int
-	FileStoragePath string
-	Restore         bool
-	Key             string
-	RateLimit       int
+	FlagRunAddr     string // address and port to run server
+	DatabaseAddress string // database address
+	ReportInterval  int    // time interval for sending metrics to the server
+	PollInterval    int    // time interval for capturing metrics
+	StoreInterval   int    // time interval for saving metrics in the db/file
+	FileStoragePath string // path for file to store metrics
+	Restore         bool   // is need to restore metrics from db/file
+	Key             string // key for using hash subscription
+	RateLimit       int    // rate limit for querying server
 }

@@ -61,6 +61,7 @@ func (a *Aggregator) AggregateGopsutilMetrics() {
 	a.metricsCollector.UpsertMetric(collector.StoredMetric{ID: "CPUutilization1", MType: "gauge", GaugeValue: collector.PtrFloat64(cp[0]), TextValue: collector.PtrString(strconv.FormatFloat(cp[0], 'f', 11, 64))})
 }
 
+// New is a function for creating `aggregator` object
 func New(metricsCollector metricsCollector) *Aggregator {
 	return &Aggregator{
 		metricsCollector: metricsCollector,
