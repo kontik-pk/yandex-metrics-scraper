@@ -12,8 +12,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-//go:generate go run ../enum.go
-
 func main() {
 	params := flags.Init(
 		flags.WithPollInterval(),
@@ -21,6 +19,7 @@ func main() {
 		flags.WithAddr(),
 		flags.WithKey(),
 		flags.WithRateLimit(),
+		flags.WithTLSKeyPath(),
 	)
 
 	errs, ctx := errgroup.WithContext(context.Background())
@@ -33,14 +32,17 @@ func main() {
 	defer logger.Sync()
 	log.SugarLogger = *logger.Sugar()
 
-	agent := agent2.New(params, aggregator.New(&collector.Collector), log.SugarLogger)
+	agent, err := agent2.New(params, aggregator.New(&collector.Collector), log.SugarLogger)
+	if err != nil {
+		log.SugarLogger.Fatalw(err.Error(), "error", "creating agent")
+	}
 	errs.Go(func() error {
 		return agent.CollectMetrics(ctx)
 	})
 	errs.Go(func() error {
 		return agent.SendMetrics(ctx)
 	})
-	if err := errs.Wait(); err != nil {
+	if err = errs.Wait(); err != nil {
 		log.SugarLogger.Errorf(fmt.Sprintf("error while running agent: %s", err.Error()))
 	}
 }

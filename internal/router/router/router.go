@@ -1,6 +1,7 @@
 package router
 
 import (
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/compressor"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
@@ -8,8 +9,11 @@ import (
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/router/handlers"
 )
 
-func New(params flags.Params) *chi.Mux {
-	handler := handlers.New(params.DatabaseAddress, params.Key)
+func New(params flags.Params) (*chi.Mux, error) {
+	handler, err := handlers.New(params.DatabaseAddress, params.Key, params.CryptoKeyPath)
+	if err != nil {
+		return nil, fmt.Errorf("error while creating handler: %w", err)
+	}
 
 	r := chi.NewRouter()
 	r.Use(log.RequestLogger)
@@ -22,5 +26,5 @@ func New(params flags.Params) *chi.Mux {
 	r.Get("/ping", handler.Ping)
 	r.Post("/updates/", handler.SaveListMetricsFromJSON)
 
-	return r
+	return r, nil
 }

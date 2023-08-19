@@ -115,6 +115,15 @@ func WithRestore() Option {
 	}
 }
 
+func WithTLSKeyPath() Option {
+	return func(p *Params) {
+		flag.StringVar(&p.CryptoKeyPath, "crypto-key", "", "crypto key path")
+		if envCryptoKeyPath := os.Getenv("CRYPTO_KEY"); envCryptoKeyPath != "" {
+			p.CryptoKeyPath = envCryptoKeyPath
+		}
+	}
+}
+
 func Init(opts ...Option) *Params {
 	p := &Params{}
 	for _, opt := range opts {
@@ -135,4 +144,5 @@ type Params struct {
 	Restore         bool   // is need to restore metrics from db/file
 	Key             string // key for using hash subscription
 	RateLimit       int    // rate limit for querying server
+	CryptoKeyPath   string // tls key path
 }

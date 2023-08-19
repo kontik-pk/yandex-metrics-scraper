@@ -16,7 +16,7 @@ var Collector = collector{
 	Metrics: make([]StoredMetric, 0),
 }
 
-// GetMetric - a method for gettong metric value by metric name.
+// GetMetric - a method for getting metric value by metric name.
 // Returns the struct of type StoredMetric
 func (c *collector) GetMetric(metricName string) (StoredMetric, error) {
 	for _, m := range c.Metrics {

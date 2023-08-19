@@ -305,7 +305,7 @@ func TestGetMetric(t *testing.T) {
 			mType:        "invalid",
 			mName:        "Gauge4",
 			mValue:       "",
-			expectedCode: http.StatusBadRequest,
+			expectedCode: http.StatusNotImplemented,
 		},
 	}
 	for _, tt := range testCases {
