@@ -8,6 +8,7 @@ import (
 
 func main() {
 	params := flags.Init(
+		flags.WithConfig(),
 		flags.WithAddr(),
 		flags.WithStoreInterval(),
 		flags.WithFileStoragePath(),
@@ -17,7 +18,6 @@ func main() {
 		flags.WithTLSKeyPath(),
 	)
 
-	// restore previous metrics if needed
 	ctx := context.Background()
 	serverRunner := runner.New(params)
 	serverRunner.Run(ctx)

@@ -66,6 +66,7 @@ func (r *Runner) Run(ctx context.Context) {
 
 	log.SugarLogger.Info("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
+	// restore previous metrics if needed
 	if r.isRestore {
 		metrics, err := r.saver.Restore(ctx)
 		if err != nil {
@@ -75,7 +76,7 @@ func (r *Runner) Run(ctx context.Context) {
 		log.SugarLogger.Info("metrics restored")
 	}
 
-	// regularly save metrics if needed
+	// regularly save metrics
 	go r.saveMetrics(ctx, r.storeInterval)
 
 	// pprof

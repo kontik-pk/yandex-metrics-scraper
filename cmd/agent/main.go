@@ -14,6 +14,7 @@ import (
 
 func main() {
 	params := flags.Init(
+		flags.WithConfig(),
 		flags.WithPollInterval(),
 		flags.WithReportInterval(),
 		flags.WithAddr(),

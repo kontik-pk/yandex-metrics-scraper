@@ -39,7 +39,7 @@ func (h *handler) SaveMetric(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	if _, err := io.WriteString(w, fmt.Sprintf("inserted metric %q with value %q", metricName, metricValue)); err != nil {
+	if _, err := io.WriteString(w, fmt.Sprintf("saved metric %q with value %q", metricName, metricValue)); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -49,10 +49,6 @@ func (h *handler) SaveMetric(w http.ResponseWriter, r *http.Request) {
 
 // SaveMetricFromJSON - a method for saving metric from JSON body of http request.
 func (h *handler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(r.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -111,10 +107,6 @@ func (h *handler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 
 // SaveListMetricsFromJSON - a method for saving a list of metrics from JSON body of http request.
 func (h *handler) SaveListMetricsFromJSON(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(r.Body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -239,7 +231,7 @@ func (h *handler) ShowMetrics(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("wrong path %q", r.URL.Path), http.StatusNotFound)
 		return
 	}
-	page := ""
+	var page string
 	for _, n := range collector.Collector.GetAvailableMetrics() {
 		page += fmt.Sprintf("<h1>	%s</h1>", n)
 	}
