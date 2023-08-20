@@ -22,6 +22,8 @@ import (
 	"go.uber.org/zap"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -56,41 +58,51 @@ func (a *Agent) CollectMetrics(ctx context.Context) (err error) {
 }
 
 // SendMetrics - a method for sending metrics to the server by timer
-func (a *Agent) SendMetrics(ctx context.Context) error {
+func (a *Agent) SendMetrics(ctx context.Context) (err error) {
 	numRequests := make(chan struct{}, a.params.RateLimit)
 	reportTicker := time.NewTicker(time.Duration(a.params.ReportInterval) * time.Second)
 	client := resty.New()
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		// check if time to send metrics on server
-		case <-reportTicker.C:
+	// send metrics by timer
+	go func() {
+		for {
 			select {
 			case <-ctx.Done():
-				return nil
-			// check if the rate limit is exceeded
-			case numRequests <- struct{}{}:
-				a.log.Info("metrics sent on server")
-				if err := a.sendMetrics(client); err != nil {
-					return err
+				return
+			// check if time to send metrics on server
+			case <-reportTicker.C:
+				select {
+				case <-ctx.Done():
+					return
+				// check if the rate limit is exceeded
+				case numRequests <- struct{}{}:
+					a.log.Info("metrics sent on server")
+					if err := a.sendMetrics(client, 10); err != nil {
+						return
+					}
+				default:
+					a.log.Info("rate limit is exceeded")
 				}
-			default:
-				a.log.Info("rate limit is exceeded")
 			}
+			// release the request pool for one
+			<-numRequests
 		}
-		// release the request pool for one
-		<-numRequests
+	}()
+	// catch signals
+	sig := <-a.signals
+	a.log.Infof("got signal: %s", sig.String())
+	if err := a.sendMetrics(client, 1); err != nil {
+		return err
 	}
+	a.log.Info("metrics successfully sent")
+	return err
 }
 
 // sendMetrics - a method that encapsulates the logic for sending a http request to the server.
-func (a *Agent) sendMetrics(client *resty.Client) error {
+func (a *Agent) sendMetrics(client *resty.Client, retries uint) error {
 	req := client.R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("Content-Encoding", "gzip")
-
 	for _, v := range collector.Collector.Metrics {
 		jsonInput, _ := json.Marshal(collector.MetricRequest{
 			ID:    v.ID,
@@ -113,7 +125,7 @@ func (a *Agent) sendMetrics(client *resty.Client) error {
 			}
 			message = string(encryptedData)
 		}
-		if err := a.sendRequestsWithRetries(req, message); err != nil {
+		if err := a.sendRequestsWithRetries(req, message, retries); err != nil {
 			return fmt.Errorf("error while sending agent request for counter metric: %w", err)
 		}
 	}
@@ -121,7 +133,7 @@ func (a *Agent) sendMetrics(client *resty.Client) error {
 }
 
 // sendMetrics - a method that implements the logic for sending a request with retries.
-func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string) error {
+func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string, retries uint) error {
 	buf := bytes.NewBuffer(nil)
 	zb := gzip.NewWriter(buf)
 	if _, err := zb.Write([]byte(jsonInput)); err != nil {
@@ -138,7 +150,7 @@ func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string) er
 			}
 			return nil
 		},
-		retry.Attempts(10),
+		retry.Attempts(retries),
 		retry.OnRetry(func(n uint, err error) {
 			log.Printf("Retrying request after error: %v", err)
 		}),
@@ -150,10 +162,13 @@ func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string) er
 
 // New is a method for creating Agent object.
 func New(params *flags.Params, aggregator *aggregator.Aggregator, log zap.SugaredLogger) (*Agent, error) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	agent := &Agent{
 		params:     params,
 		aggregator: aggregator,
 		log:        log,
+		signals:    sigs,
 	}
 	if params.CryptoKeyPath != "" {
 		b, err := os.ReadFile(params.CryptoKeyPath)
@@ -175,5 +190,6 @@ type Agent struct {
 	params     *flags.Params
 	aggregator *aggregator.Aggregator
 	cryptoKey  *rsa.PublicKey
+	signals    chan os.Signal
 	log        zap.SugaredLogger
 }

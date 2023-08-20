@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/go-chi/chi/v5"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	log "github.com/kontik-pk/yandex-metrics-scraper/internal/logger"
@@ -14,6 +13,9 @@ import (
 	"go.uber.org/zap"
 	"net/http"
 	_ "net/http/pprof"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -27,31 +29,42 @@ const (
 type Runner struct {
 	saver           saver
 	metricsInterval time.Duration
-	router          *chi.Mux
 	isRestore       bool
 	storeInterval   int
-	runAddress      string
 	tlsKey          string
+	appSrv          server
+	pprofSrv        server
+	signals         chan os.Signal
 }
 
 func New(params *flags.Params) *Runner {
-	// init restorer
+	// init saver (file or db)
 	saver, err := initSaver(params)
 	if err != nil {
 		log.SugarLogger.Fatalw(err.Error(), "error", "init metrics saver")
 	}
+	// init router
 	r, err := router.New(*params)
 	if err != nil {
 		log.SugarLogger.Fatalw(err.Error(), "error", "creating router")
 	}
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	return &Runner{
 		saver:           saver,
 		metricsInterval: time.Duration(params.StoreInterval),
-		router:          r,
 		isRestore:       params.Restore,
 		storeInterval:   params.StoreInterval,
-		runAddress:      params.FlagRunAddr,
 		tlsKey:          params.CryptoKeyPath,
+		appSrv: &http.Server{
+			Addr:    params.FlagRunAddr,
+			Handler: r,
+		},
+		pprofSrv: &http.Server{
+			Addr:    pprofAddr,
+			Handler: nil,
+		},
+		signals: sigs,
 	}
 }
 
@@ -63,7 +76,6 @@ func (r *Runner) Run(ctx context.Context) {
 	}
 	defer logger.Sync()
 	log.SugarLogger = *logger.Sugar()
-
 	log.SugarLogger.Info("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
 	// restore previous metrics if needed
@@ -81,32 +93,35 @@ func (r *Runner) Run(ctx context.Context) {
 
 	// pprof
 	go func() {
-		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+		if err := r.pprofSrv.ListenAndServe(); err != nil {
 			log.SugarLogger.Fatalw(err.Error(), "pprof", "start pprof server")
 		}
 	}()
 
 	// run server
-	log.SugarLogger.Infow(
+	log.SugarLogger.Info(
 		"Starting server",
-		"addr", r.runAddress,
 	)
-	if err := http.ListenAndServe(r.runAddress, r.router); err != nil {
-		log.SugarLogger.Fatalw(err.Error(), "event", "start server")
-	}
-}
+	go func() {
+		if err := r.appSrv.ListenAndServe(); err != nil {
+			log.SugarLogger.Fatalw(err.Error(), "event", "start server")
+		}
+	}()
 
-func (r *Runner) runServer() {
-	if err := http.ListenAndServe(r.runAddress, r.router); err != nil {
-		log.SugarLogger.Fatalw(err.Error(), "event", "start server")
+	sig := <-r.signals
+	log.SugarLogger.Info(fmt.Sprintf("got signal: %s", sig.String()))
+	if err = r.saver.Save(ctx, collector.Collector.Metrics); err != nil {
+		log.SugarLogger.Error(err.Error(), "save error")
+	} else {
+		log.SugarLogger.Info("metrics was successfully saved")
+	}
+	if err = r.appSrv.Shutdown(ctx); err != nil {
+		log.SugarLogger.Error(fmt.Sprintf("error while server shutdown: %s", err.Error()), "server shutdown error")
 	}
 }
 
 func (r *Runner) saveMetrics(ctx context.Context, interval int) {
 	ticker := time.NewTicker(time.Duration(interval))
-	if err := r.saver.Save(ctx, collector.Collector.Metrics); err != nil {
-		log.SugarLogger.Error(err.Error(), "save error")
-	}
 	for {
 		select {
 		case <-ctx.Done():
@@ -132,7 +147,14 @@ func initSaver(params *flags.Params) (saver, error) {
 	return nil, fmt.Errorf("neither file path nor database address was specified")
 }
 
+//go:generate mockery --inpackage --disable-version-string --filename saver_mock.go --name saver
 type saver interface {
 	Restore(ctx context.Context) ([]collector.StoredMetric, error)
 	Save(ctx context.Context, metrics []collector.StoredMetric) error
+}
+
+//go:generate mockery --inpackage --disable-version-string --filename server_mock.go --name server
+type server interface {
+	ListenAndServe() error
+	Shutdown(ctx context.Context) error
 }

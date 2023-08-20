@@ -10,6 +10,9 @@ import (
 	aggregator "github.com/kontik-pk/yandex-metrics-scraper/internal/metrics"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func main() {
@@ -22,7 +25,8 @@ func main() {
 		flags.WithRateLimit(),
 		flags.WithTLSKeyPath(),
 	)
-
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 	errs, ctx := errgroup.WithContext(context.Background())
 
 	logger, err := zap.NewDevelopment()

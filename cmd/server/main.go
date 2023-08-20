@@ -17,8 +17,8 @@ func main() {
 		flags.WithKey(),
 		flags.WithTLSKeyPath(),
 	)
-
 	ctx := context.Background()
 	serverRunner := runner.New(params)
+
 	serverRunner.Run(ctx)
 }
