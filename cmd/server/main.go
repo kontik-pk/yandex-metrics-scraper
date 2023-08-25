@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/runner"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/runner/server"
 )
 
 func main() {
@@ -18,7 +18,7 @@ func main() {
 		flags.WithTLSKeyPath(),
 	)
 	ctx := context.Background()
-	serverRunner := runner.New(params)
+	serverRunner := server.New(params)
 
 	serverRunner.Run(ctx)
 }
