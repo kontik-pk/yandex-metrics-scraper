@@ -173,14 +173,14 @@ func Init(opts ...Option) *Params {
 
 // Params is a struct for storing run parameters
 type Params struct {
-	FlagRunAddr     string `json:"address"`        // address and port to run server
-	DatabaseAddress string `json:"database_dsn"`   // database address
-	ReportInterval  int    `json:"id"`             // time interval for sending metrics to the server
-	PollInterval    int    `json:"poll_interval"`  // time interval for capturing metrics
-	StoreInterval   int    `json:"store_interval"` // time interval for saving metrics in the db/file
-	FileStoragePath string `json:"store_file"`     // path for file to store metrics
-	Restore         bool   `json:"restore"`        // is need to restore metrics from db/file
-	Key             string `json:"hash_key"`       // key for using hash subscription
-	RateLimit       int    `json:"Rate_limit"`     // rate limit for querying server
-	CryptoKeyPath   string `json:"crypto_key"`     // tls key path
+	FlagRunAddr     string `json:"address"`         // address and port to run server
+	DatabaseAddress string `json:"database_dsn"`    // database address
+	ReportInterval  int    `json:"report_interval"` // time interval for sending metrics to the server
+	PollInterval    int    `json:"poll_interval"`   // time interval for capturing metrics
+	StoreInterval   int    `json:"store_interval"`  // time interval for saving metrics in the db/file
+	FileStoragePath string `json:"store_file"`      // path for file to store metrics
+	Restore         bool   `json:"restore"`         // is need to restore metrics from db/file
+	Key             string `json:"hash_key"`        // key for using hash subscription
+	RateLimit       int    `json:"rate_limit"`      // rate limit for querying server
+	CryptoKeyPath   string `json:"crypto_key"`      // tls key path
 }

@@ -3,13 +3,14 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-resty/resty/v2"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/stretchr/testify/assert"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 func TestHandler_SaveListMetricsFromJSON(t *testing.T) {
@@ -107,7 +108,7 @@ func TestHandler_SaveListMetricsFromJSON(t *testing.T) {
 				return
 			}
 			for i, m := range tt.request {
-				value, err := collector.Collector.GetMetricJSON(m.ID)
+				value, err := collector.Collector().GetMetricJSON(m.ID)
 				if err != nil {
 					assert.EqualError(t, err, tt.expectedError.Error())
 				} else {
@@ -208,7 +209,7 @@ func TestSaveMetric(t *testing.T) {
 			assert.NoError(t, err, "error making HTTP request")
 			assert.Equal(t, resp.StatusCode(), tt.expectedCode)
 
-			value, err := collector.Collector.GetMetric(tt.mName)
+			value, err := collector.Collector().GetMetric(tt.mName)
 			if err != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {
@@ -310,7 +311,7 @@ func TestSaveMetricFromJSON(t *testing.T) {
 			assert.NoError(t, err, "error making HTTP request")
 			assert.Equal(t, resp.StatusCode(), tt.expectedCode)
 
-			value, err := collector.Collector.GetMetricJSON(tt.request.ID)
+			value, err := collector.Collector().GetMetricJSON(tt.request.ID)
 			if err != nil {
 				assert.EqualError(t, err, tt.expectedError.Error())
 			} else {
@@ -329,6 +330,7 @@ func TestSaveMetricFromJSON(t *testing.T) {
 func TestGetMetric(t *testing.T) {
 	r := chi.NewRouter()
 	h := handler{}
+	r.Use(h.CheckSubscription)
 	r.Post("/update/{type}/{name}/{value}", h.SaveMetric)
 	r.Get("/value/{type}/{name}", h.GetMetric)
 	srv := httptest.NewServer(r)

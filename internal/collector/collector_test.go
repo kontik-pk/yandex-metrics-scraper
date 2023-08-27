@@ -2,8 +2,9 @@ package collector
 
 import (
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestCollector_Collect(t *testing.T) {

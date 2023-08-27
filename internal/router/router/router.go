@@ -2,10 +2,11 @@ package router
 
 import (
 	"fmt"
+
 	"github.com/go-chi/chi/v5"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/compressor"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
-	log "github.com/kontik-pk/yandex-metrics-scraper/internal/logger"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/middlewares/compressor"
+	log "github.com/kontik-pk/yandex-metrics-scraper/internal/middlewares/logger"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/router/handlers"
 )
 
@@ -18,6 +19,7 @@ func New(params flags.Params) (*chi.Mux, error) {
 	r := chi.NewRouter()
 	r.Use(log.RequestLogger)
 	r.Use(compressor.Compress)
+	r.Use(handler.CheckSubscription)
 	r.Post("/update/", handler.SaveMetricFromJSON)
 	r.Post("/value/", handler.GetMetricFromJSON)
 	r.Post("/update/{type}/{name}/{value}", handler.SaveMetric)

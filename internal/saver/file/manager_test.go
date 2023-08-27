@@ -2,10 +2,11 @@ package file
 
 import (
 	"context"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestManager_Restore(t *testing.T) {

@@ -14,96 +14,69 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"github.com/avast/retry-go"
+	"os"
+	"time"
+
 	"github.com/go-resty/resty/v2"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	aggregator "github.com/kontik-pk/yandex-metrics-scraper/internal/metrics"
 	"go.uber.org/zap"
-	"log"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 // CollectMetrics - is a method of the Agent struct for capturing runtime and gopsutil metrics.
-func (a *Agent) CollectMetrics(ctx context.Context) (err error) {
+func (a *Agent) CollectMetrics(ctx context.Context) {
 	aggTicker := time.NewTicker(time.Duration(a.params.PollInterval) * time.Second)
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				err = ctx.Err()
 				return
 			case <-aggTicker.C:
 				a.aggregator.AggregateRuntimeMetrics()
-			}
-		}
-	}()
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				err = ctx.Err()
-				return
-			case <-aggTicker.C:
 				a.aggregator.AggregateGopsutilMetrics()
 			}
 		}
 	}()
-
-	return err
 }
 
-// SendMetrics - a method for sending metrics to the server by timer
-func (a *Agent) SendMetrics(ctx context.Context) (err error) {
+// SendMetricsLoop - a method for sending metrics to the server by timer
+func (a *Agent) SendMetricsLoop(ctx context.Context) (err error) {
 	numRequests := make(chan struct{}, a.params.RateLimit)
 	reportTicker := time.NewTicker(time.Duration(a.params.ReportInterval) * time.Second)
-	client := resty.New()
 	// send metrics by timer
-	go func() {
-		for {
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("ctx1")
+			return
+		// check if time to send metrics on server
+		case <-reportTicker.C:
 			select {
-			case <-ctx.Done():
-				return
-			// check if time to send metrics on server
-			case <-reportTicker.C:
-				select {
-				case <-ctx.Done():
-					return
-				// check if the rate limit is exceeded
-				case numRequests <- struct{}{}:
-					a.log.Info("metrics sent on server")
-					if err := a.sendMetrics(client, 10); err != nil {
-						return
-					}
-				default:
-					a.log.Info("rate limit is exceeded")
+			// check if the rate limit is exceeded
+			case numRequests <- struct{}{}:
+				if err = a.SendMetrics(ctx); err != nil {
+					fmt.Println(err.Error())
+					return err
 				}
+			default:
+				fmt.Println("default")
+				a.log.Info("rate limit is exceeded")
 			}
-			// release the request pool for one
-			<-numRequests
 		}
-	}()
-	// catch signals
-	sig := <-a.signals
-	a.log.Infof("got signal: %s", sig.String())
-	if err := a.sendMetrics(client, 1); err != nil {
-		return err
+		// release the request pool for one
+		<-numRequests
 	}
-	a.log.Info("metrics successfully sent")
-	return err
 }
 
-// sendMetrics - a method that encapsulates the logic for sending a http request to the server.
-func (a *Agent) sendMetrics(client *resty.Client, retries uint) error {
-	req := client.R().
+// SendMetrics - a method that encapsulates the logic for sending a http request to the server.
+func (a *Agent) SendMetrics(ctx context.Context) error {
+	req := a.client.SetRetryCount(3).R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip").
 		SetHeader("Content-Encoding", "gzip")
-	for _, v := range collector.Collector.Metrics {
+
+	for _, v := range collector.Collector().Metrics {
 		jsonInput, _ := json.Marshal(collector.MetricRequest{
 			ID:    v.ID,
 			MType: v.MType,
@@ -125,15 +98,17 @@ func (a *Agent) sendMetrics(client *resty.Client, retries uint) error {
 			}
 			message = string(encryptedData)
 		}
-		if err := a.sendRequestsWithRetries(req, message, retries); err != nil {
+		if err := a.sendRequestsWithRetries(req, message); err != nil {
+			fmt.Println("here")
 			return fmt.Errorf("error while sending agent request for counter metric: %w", err)
 		}
 	}
+	a.log.Info("metrics sent on server")
 	return nil
 }
 
-// sendMetrics - a method that implements the logic for sending a request with retries.
-func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string, retries uint) error {
+// SendMetrics - a method that implements the logic for sending a request with retries.
+func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string) error {
 	buf := bytes.NewBuffer(nil)
 	zb := gzip.NewWriter(buf)
 	if _, err := zb.Write([]byte(jsonInput)); err != nil {
@@ -142,33 +117,21 @@ func (a *Agent) sendRequestsWithRetries(req *resty.Request, jsonInput string, re
 	if err := zb.Close(); err != nil {
 		return fmt.Errorf("error while trying to close writer: %w", err)
 	}
-
-	if err := retry.Do(
-		func() error {
-			if _, err := req.SetBody(buf).Post(fmt.Sprintf("http://%s/update/", a.params.FlagRunAddr)); err != nil {
-				return fmt.Errorf("error while trying to create post request: %w", err)
-			}
-			return nil
-		},
-		retry.Attempts(retries),
-		retry.OnRetry(func(n uint, err error) {
-			log.Printf("Retrying request after error: %v", err)
-		}),
-	); err != nil {
-		return fmt.Errorf("error while trying to connect to server: %w", err)
+	if _, err := req.
+		SetBody(buf).
+		Post(fmt.Sprintf("http://%s/update/", a.params.FlagRunAddr)); err != nil {
+		return fmt.Errorf("error while trying to create post request: %w", err)
 	}
 	return nil
 }
 
 // New is a method for creating Agent object.
-func New(params *flags.Params, aggregator *aggregator.Aggregator, log zap.SugaredLogger) (*Agent, error) {
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+func New(params *flags.Params, aggregator *aggregator.Aggregator, log *zap.SugaredLogger) (*Agent, error) {
 	agent := &Agent{
 		params:     params,
 		aggregator: aggregator,
 		log:        log,
-		signals:    sigs,
+		client:     resty.New(),
 	}
 	if params.CryptoKeyPath != "" {
 		b, err := os.ReadFile(params.CryptoKeyPath)
@@ -190,6 +153,6 @@ type Agent struct {
 	params     *flags.Params
 	aggregator *aggregator.Aggregator
 	cryptoKey  *rsa.PublicKey
-	signals    chan os.Signal
-	log        zap.SugaredLogger
+	log        *zap.SugaredLogger
+	client     *resty.Client
 }

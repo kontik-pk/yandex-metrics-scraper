@@ -4,23 +4,24 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
-	log "github.com/kontik-pk/yandex-metrics-scraper/internal/logger"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/router/router"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/database"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/file"
-	"go.uber.org/zap"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
+	log "github.com/kontik-pk/yandex-metrics-scraper/internal/middlewares/logger"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/router/router"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/database"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/file"
+	"go.uber.org/zap"
 )
 
 const (
-	pprofAddr    string = ":90"
+	pprofAddr    string = ":8090"
 	buildVersion string = ""
 	buildDate    string = ""
 	buildCommit  string = ""
@@ -34,10 +35,20 @@ type Runner struct {
 	tlsKey          string
 	appSrv          server
 	pprofSrv        server
+	logger          *zap.SugaredLogger
 	signals         chan os.Signal
 }
 
 func New(params *flags.Params) *Runner {
+	// init logger
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		fmt.Println("error while creating logger, exit")
+		return nil
+	}
+	defer logger.Sync()
+	log.SugarLogger = *logger.Sugar()
+
 	// init saver (file or db)
 	saver, err := initSaver(params)
 	if err != nil {
@@ -65,27 +76,21 @@ func New(params *flags.Params) *Runner {
 			Handler: nil,
 		},
 		signals: sigs,
+		logger:  &log.SugarLogger,
 	}
 }
 
 func (r *Runner) Run(ctx context.Context) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		fmt.Println("error while creating logger, exit")
-		return
-	}
-	defer logger.Sync()
-	log.SugarLogger = *logger.Sugar()
-	log.SugarLogger.Info("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
+	r.logger.Info("Build version: %s\nBuild date: %s\nBuild commit: %s\n", buildVersion, buildDate, buildCommit)
 
 	// restore previous metrics if needed
 	if r.isRestore {
 		metrics, err := r.saver.Restore(ctx)
 		if err != nil {
-			log.SugarLogger.Error(err.Error(), "restore error")
+			r.logger.Error(err.Error(), "restore error")
 		}
-		collector.Collector.Metrics = metrics
-		log.SugarLogger.Info("metrics restored")
+		collector.Collector().Metrics = metrics
+		r.logger.Info("metrics restored")
 	}
 
 	// regularly save metrics
@@ -94,29 +99,31 @@ func (r *Runner) Run(ctx context.Context) {
 	// pprof
 	go func() {
 		if err := r.pprofSrv.ListenAndServe(); err != nil {
-			log.SugarLogger.Fatalw(err.Error(), "pprof", "start pprof server")
+			r.logger.Fatalw(err.Error(), "pprof", "start pprof server")
+		}
+	}()
+
+	// catch signals
+	go func() {
+		sig := <-r.signals
+		r.logger.Info(fmt.Sprintf("got signal: %s", sig.String()))
+		// save metrics
+		if err := r.saver.Save(ctx, collector.Collector().Metrics); err != nil {
+			r.logger.Error(err.Error(), "save error")
+		} else {
+			r.logger.Info("metrics was successfully saved")
+		}
+		// gracefull shutdown
+		if err := r.appSrv.Shutdown(ctx); err != nil {
+			r.logger.Error(fmt.Sprintf("error while server shutdown: %s", err.Error()), "server shutdown error")
+			return
 		}
 	}()
 
 	// run server
-	log.SugarLogger.Info(
-		"Starting server",
-	)
-	go func() {
-		if err := r.appSrv.ListenAndServe(); err != nil {
-			log.SugarLogger.Fatalw(err.Error(), "event", "start server")
-		}
-	}()
-
-	sig := <-r.signals
-	log.SugarLogger.Info(fmt.Sprintf("got signal: %s", sig.String()))
-	if err = r.saver.Save(ctx, collector.Collector.Metrics); err != nil {
-		log.SugarLogger.Error(err.Error(), "save error")
-	} else {
-		log.SugarLogger.Info("metrics was successfully saved")
-	}
-	if err = r.appSrv.Shutdown(ctx); err != nil {
-		log.SugarLogger.Error(fmt.Sprintf("error while server shutdown: %s", err.Error()), "server shutdown error")
+	r.logger.Info("Starting server")
+	if err := r.appSrv.ListenAndServe(); err != nil {
+		r.logger.Fatalw(err.Error(), "event", "start server")
 	}
 }
 
@@ -127,8 +134,8 @@ func (r *Runner) saveMetrics(ctx context.Context, interval int) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := r.saver.Save(ctx, collector.Collector.Metrics); err != nil {
-				log.SugarLogger.Error(err.Error(), "save error")
+			if err := r.saver.Save(ctx, collector.Collector().Metrics); err != nil {
+				r.logger.Error(err.Error(), "save error")
 			}
 		}
 	}

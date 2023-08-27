@@ -3,47 +3,80 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"sync"
+	"syscall"
+
 	agent2 "github.com/kontik-pk/yandex-metrics-scraper/internal/agent"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
-	log "github.com/kontik-pk/yandex-metrics-scraper/internal/logger"
 	aggregator "github.com/kontik-pk/yandex-metrics-scraper/internal/metrics"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 type Runner struct {
-	params *flags.Params
+	params  *flags.Params
+	logger  *zap.SugaredLogger
+	signals chan os.Signal
 }
 
 func New(params *flags.Params) *Runner {
-	return &Runner{
-		params: params,
-	}
-}
-
-func (r *Runner) Run(ctx context.Context) {
-	errs, ctx := errgroup.WithContext(ctx)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
 
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		fmt.Println("error while creating logger, exit")
-		return
+		return nil
 	}
 	defer logger.Sync()
-	log.SugarLogger = *logger.Sugar()
 
-	agent, err := agent2.New(r.params, aggregator.New(&collector.Collector), log.SugarLogger)
-	if err != nil {
-		log.SugarLogger.Fatalw(err.Error(), "error", "creating agent")
+	return &Runner{
+		params:  params,
+		signals: sigs,
+		logger:  logger.Sugar(),
 	}
-	errs.Go(func() error {
-		return agent.CollectMetrics(ctx)
-	})
-	errs.Go(func() error {
-		return agent.SendMetrics(ctx)
-	})
-	if err = errs.Wait(); err != nil {
-		log.SugarLogger.Errorf(fmt.Sprintf("error while running agent: %s", err.Error()))
+}
+
+func (r *Runner) Run(ctx context.Context) {
+	fatalErrorChannel := make(chan error)
+	wgDone := make(chan bool)
+	var wg sync.WaitGroup
+
+	// init agent
+	agent, err := agent2.New(r.params, aggregator.New(collector.Collector()), r.logger)
+	if err != nil {
+		r.logger.Fatalw(err.Error(), "error", "creating agent")
+	}
+
+	// collect all necessary metrics
+	wg.Add(1)
+	go func() {
+		agent.CollectMetrics(ctx)
+		wg.Done()
+	}()
+
+	// send metrics on server by timer internally
+	wg.Add(1)
+	go func() {
+		fatalErrorChannel <- agent.SendMetricsLoop(ctx)
+		wg.Done()
+	}()
+
+	// catch signals
+	wg.Add(1)
+	go func() {
+		sig := <-r.signals
+		r.logger.Info(fmt.Sprintf("got signal: %s", sig.String()))
+		fatalErrorChannel <- agent.SendMetrics(ctx)
+		wg.Done()
+	}()
+
+	select {
+	case <-wgDone:
+		break
+	case <-fatalErrorChannel:
+		close(fatalErrorChannel)
 	}
 }

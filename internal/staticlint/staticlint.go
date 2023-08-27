@@ -3,6 +3,7 @@ package staticlint
 import (
 	"fmt"
 	"go/ast"
+
 	"golang.org/x/tools/go/analysis"
 )
 
