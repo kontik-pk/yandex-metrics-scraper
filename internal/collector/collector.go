@@ -12,8 +12,12 @@ var (
 	ErrNotFound       = errors.New("not found")
 )
 
-var Collector = collector{
+var metricsCollector = collector{
 	Metrics: make([]StoredMetric, 0),
+}
+
+func Collector() *collector {
+	return &metricsCollector
 }
 
 // GetMetric - a method for getting metric value by metric name.

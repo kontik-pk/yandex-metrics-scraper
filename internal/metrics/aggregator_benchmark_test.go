@@ -1,14 +1,15 @@
 package aggregator
 
 import (
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"testing"
+
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 )
 
 func BenchmarkAggregator_AggregateGopsutilMetrics(b *testing.B) {
 	b.Run("aggregate gopsutil metrics benchmark", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			metricsCollector := &collector.Collector
+			metricsCollector := collector.Collector()
 			metricsAggregator := New(metricsCollector)
 			metricsAggregator.AggregateGopsutilMetrics()
 		}
@@ -18,7 +19,7 @@ func BenchmarkAggregator_AggregateGopsutilMetrics(b *testing.B) {
 func BenchmarkAggregator_AggregateRuntimeMetrics(b *testing.B) {
 	b.Run("aggregate runtime metrics benchmark", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
-			metricsCollector := &collector.Collector
+			metricsCollector := collector.Collector()
 			metricsAggregator := New(metricsCollector)
 			metricsAggregator.AggregateRuntimeMetrics()
 		}

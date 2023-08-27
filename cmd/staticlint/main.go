@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/staticlint"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
@@ -8,7 +10,6 @@ import (
 	"golang.org/x/tools/go/analysis/passes/shift"
 	"golang.org/x/tools/go/analysis/passes/structtag"
 	"honnef.co/go/tools/staticcheck"
-	"strings"
 )
 
 // This package defines the main function for an analysis driver

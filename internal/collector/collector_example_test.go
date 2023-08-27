@@ -2,7 +2,7 @@ package collector
 
 import "fmt"
 
-func ExampleCollector_Collect() {
+func Example_collect() {
 	metricsCollector := collector{
 		Metrics: make([]StoredMetric, 0),
 	}
@@ -24,7 +24,7 @@ func ExampleCollector_Collect() {
 	// 100500
 }
 
-func ExampleCollector_GetMetricJSON() {
+func Example_getMetricsJson() {
 	metricsCollector := collector{
 		Metrics: []StoredMetric{
 			{
@@ -44,7 +44,7 @@ func ExampleCollector_GetMetricJSON() {
 	// {"id":"metricName","type":"counter","counter_value":100500,"text_value":"100500"}
 }
 
-func ExampleCollector_GetAvailableMetrics() {
+func Example_getAvailableMetrics() {
 	metricsCollector := collector{
 		Metrics: []StoredMetric{
 			{
@@ -66,7 +66,7 @@ func ExampleCollector_GetAvailableMetrics() {
 	// [metricCounterName metricGaugeName]
 }
 
-func ExampleCollector_GetMetric() {
+func Example_getMetric() {
 	metricsCollector := collector{
 		Metrics: []StoredMetric{
 			{
@@ -98,7 +98,7 @@ func ExampleCollector_GetMetric() {
 	// 64.502
 }
 
-func ExampleCollector_UpsertMetric() {
+func Example_upsertMetric() {
 	metricsCollector := collector{
 		Metrics: []StoredMetric{},
 	}

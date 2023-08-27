@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/runner/server"
 )
