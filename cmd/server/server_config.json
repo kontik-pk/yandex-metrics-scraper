@@ -1,0 +1,6 @@
+{
+  "address": "127.0.0.1:8080",
+  "restore": true,
+  "store_interval": 1,
+  "crypto_key": "./cmd/server/private_key.pem"
+}
