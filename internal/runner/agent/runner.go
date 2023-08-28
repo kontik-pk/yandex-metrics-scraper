@@ -40,8 +40,8 @@ func New(params *flags.Params) *Runner {
 }
 
 func (r *Runner) Run(ctx context.Context) {
-	fatalErrorChannel := make(chan error)
-	wgDone := make(chan bool)
+	runCtx, cancel := context.WithCancel(ctx)
+
 	var wg sync.WaitGroup
 
 	// init agent
@@ -53,14 +53,18 @@ func (r *Runner) Run(ctx context.Context) {
 	// collect all necessary metrics
 	wg.Add(1)
 	go func() {
-		agent.CollectMetrics(ctx)
+		agent.CollectMetrics(runCtx)
 		wg.Done()
 	}()
 
 	// send metrics on server by timer internally
 	wg.Add(1)
 	go func() {
-		fatalErrorChannel <- agent.SendMetricsLoop(ctx)
+		if err = agent.SendMetricsLoop(runCtx); err != nil {
+			r.logger.Errorf("send metrics loop exited with error: %s", err.Error())
+			wg.Done()
+			cancel()
+		}
 		wg.Done()
 	}()
 
@@ -69,14 +73,15 @@ func (r *Runner) Run(ctx context.Context) {
 	go func() {
 		sig := <-r.signals
 		r.logger.Info(fmt.Sprintf("got signal: %s", sig.String()))
-		fatalErrorChannel <- agent.SendMetrics(ctx)
+		if err = agent.SendMetrics(runCtx); err != nil {
+			r.logger.Errorf("send metrics after signal %q exited with error: %s", sig.String(), err.Error())
+		} else {
+			r.logger.Infof("metrics successfully sent after signal %q", sig.String())
+		}
+		cancel()
 		wg.Done()
 	}()
 
-	select {
-	case <-wgDone:
-		break
-	case <-fatalErrorChannel:
-		close(fatalErrorChannel)
-	}
+	// wait for all goroutines to complete
+	wg.Wait()
 }

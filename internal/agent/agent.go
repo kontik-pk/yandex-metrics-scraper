@@ -48,7 +48,6 @@ func (a *Agent) SendMetricsLoop(ctx context.Context) (err error) {
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("ctx1")
 			return
 		// check if time to send metrics on server
 		case <-reportTicker.C:
@@ -56,11 +55,9 @@ func (a *Agent) SendMetricsLoop(ctx context.Context) (err error) {
 			// check if the rate limit is exceeded
 			case numRequests <- struct{}{}:
 				if err = a.SendMetrics(ctx); err != nil {
-					fmt.Println(err.Error())
 					return err
 				}
 			default:
-				fmt.Println("default")
 				a.log.Info("rate limit is exceeded")
 			}
 		}
@@ -99,7 +96,6 @@ func (a *Agent) SendMetrics(ctx context.Context) error {
 			message = string(encryptedData)
 		}
 		if err := a.sendRequestsWithRetries(req, message); err != nil {
-			fmt.Println("here")
 			return fmt.Errorf("error while sending agent request for counter metric: %w", err)
 		}
 	}
