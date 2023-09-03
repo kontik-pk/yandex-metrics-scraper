@@ -71,7 +71,8 @@ func (a *Agent) SendMetrics(ctx context.Context) error {
 	req := a.client.SetRetryCount(3).R().
 		SetHeader("Content-Type", "application/json").
 		SetHeader("Accept-Encoding", "gzip").
-		SetHeader("Content-Encoding", "gzip")
+		SetHeader("Content-Encoding", "gzip").
+		SetHeader("X-Real-IP", "173.17.0.2")
 
 	for _, v := range collector.Collector().Metrics {
 		jsonInput, _ := json.Marshal(collector.MetricRequest{

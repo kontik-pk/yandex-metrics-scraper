@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/runner/server"
@@ -17,7 +18,9 @@ func main() {
 		flags.WithDatabase(),
 		flags.WithKey(),
 		flags.WithTLSKeyPath(),
+		flags.WithTrustedSubnet(),
 	)
+	fmt.Println(params)
 	ctx := context.Background()
 	serverRunner := server.New(params)
 

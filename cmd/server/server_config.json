@@ -2,5 +2,6 @@
   "address": "127.0.0.1:8080",
   "restore": true,
   "store_interval": 1,
-  "crypto_key": "./cmd/server/private_key.pem"
+  "crypto_key": "./cmd/server/private_key.pem",
+  "trusted_subnet": "172.17.0.0/16"
 }

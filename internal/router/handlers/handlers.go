@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -250,6 +251,22 @@ func (h *handler) CheckSubscription(hh http.Handler) http.Handler {
 	return http.HandlerFunc(checkFn)
 }
 
+func (h *handler) CheckSubnet(hh http.Handler) http.Handler {
+	checkSubnetFn := func(w http.ResponseWriter, r *http.Request) {
+		if h.trustedSubnet != "" {
+			realIP := r.Header.Get("X-Real-IP")
+			_, ipnet, _ := net.ParseCIDR(h.trustedSubnet)
+
+			if !ipnet.Contains(net.ParseIP(realIP)) {
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
+		}
+		hh.ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(checkSubnetFn)
+}
+
 func (h *handler) collectMetric(metric collector.MetricRequest) ([]byte, error) {
 	c := collector.Collector()
 
@@ -312,10 +329,11 @@ func (h *handler) getHash(body []byte) string {
 	return wantDecoded
 }
 
-func New(db string, key string, cryptoKey string) (*handler, error) {
+func New(db string, key string, cryptoKey string, trustedSubnet string) (*handler, error) {
 	handler := &handler{
-		dbAddress: db,
-		key:       key,
+		dbAddress:     db,
+		key:           key,
+		trustedSubnet: trustedSubnet,
 	}
 	if cryptoKey != "" {
 		b, err := os.ReadFile(cryptoKey)
@@ -333,7 +351,8 @@ func New(db string, key string, cryptoKey string) (*handler, error) {
 }
 
 type handler struct {
-	dbAddress string
-	key       string
-	cryptoKey *rsa.PrivateKey
+	dbAddress     string
+	trustedSubnet string
+	key           string
+	cryptoKey     *rsa.PrivateKey
 }

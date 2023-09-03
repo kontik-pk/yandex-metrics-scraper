@@ -19,6 +19,15 @@ const (
 
 type Option func(params *Params)
 
+func WithTrustedSubnet() Option {
+	return func(p *Params) {
+		flag.StringVar(&p.TrustedSubnet, "t", p.TrustedSubnet, "trusted subnet")
+		if envTrustedSubnet := os.Getenv("TRUSTED_SUBNET"); envTrustedSubnet != "" {
+			p.TrustedSubnet = envTrustedSubnet
+		}
+	}
+}
+
 func WithRateLimit() Option {
 	return func(p *Params) {
 		flag.IntVar(&p.RateLimit, "l", p.RateLimit, "max requests to send on server")
@@ -183,4 +192,5 @@ type Params struct {
 	Key             string `json:"hash_key"`        // key for using hash subscription
 	RateLimit       int    `json:"rate_limit"`      // rate limit for querying server
 	CryptoKeyPath   string `json:"crypto_key"`      // tls key path
+	TrustedSubnet   string `json:"trusted_subnet"`  // trusted subnet
 }
