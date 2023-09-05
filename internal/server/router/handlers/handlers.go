@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	collector2 "github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
 	"html/template"
 	"io"
 	"net"
@@ -22,7 +23,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 )
 
 // SaveMetric - a method for saving metric from url.
@@ -31,8 +31,8 @@ func (h *handler) SaveMetric(w http.ResponseWriter, r *http.Request) {
 	metricName := chi.URLParam(r, "name")
 	metricValue := chi.URLParam(r, "value")
 
-	if err := collector.Collector().Collect(
-		collector.MetricRequest{
+	if err := collector2.Collector().Collect(
+		collector2.MetricRequest{
 			ID:    metricName,
 			MType: metricType,
 		}, metricValue); err != nil {
@@ -69,7 +69,7 @@ func (h *handler) SaveMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// unmarshall request body and get metric
-	var metric collector.MetricRequest
+	var metric collector2.MetricRequest
 	if err := json.Unmarshal(message, &metric); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -99,7 +99,7 @@ func (h *handler) SaveListMetricsFromJSON(w http.ResponseWriter, r *http.Request
 	}
 
 	// unmarshall request body and get metric
-	var metrics []collector.MetricRequest
+	var metrics []collector2.MetricRequest
 	if err := json.Unmarshal(buf.Bytes(), &metrics); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -132,23 +132,23 @@ func (h *handler) GetMetricFromJSON(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// unmarshall body and get requested metric name
-	var metric collector.MetricRequest
+	var metric collector2.MetricRequest
 	if err := json.Unmarshal(buf.Bytes(), &metric); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	// get metric from collector
-	resultJSON, err := collector.Collector().GetMetric(metric.ID)
+	resultJSON, err := collector2.Collector().GetMetric(metric.ID)
 	if err != nil {
 		w.WriteHeader(h.getStatusOnError(err))
 		return
 	}
 	// get metric value
 	switch metric.MType {
-	case collector.Counter:
+	case collector2.Counter:
 		metric.Delta = resultJSON.CounterValue
-	case collector.Gauge:
+	case collector2.Gauge:
 		metric.Value = resultJSON.GaugeValue
 	}
 	answer, err := json.Marshal(metric)
@@ -171,12 +171,12 @@ func (h *handler) GetMetric(w http.ResponseWriter, r *http.Request) {
 	metricType := chi.URLParam(r, "type")
 	metricName := chi.URLParam(r, "name")
 
-	if metricType != collector.Counter && metricType != collector.Gauge {
+	if metricType != collector2.Counter && metricType != collector2.Gauge {
 		w.WriteHeader(http.StatusNotImplemented)
 		return
 	}
 	// get requested metric from collector
-	value, err := collector.Collector().GetMetric(metricName)
+	value, err := collector2.Collector().GetMetric(metricName)
 	if err != nil {
 		w.WriteHeader(h.getStatusOnError(err))
 		return
@@ -198,11 +198,11 @@ func (h *handler) ShowMetrics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var page string
-	for _, n := range collector.Collector().GetAvailableMetrics() {
+	for _, n := range collector2.Collector().GetAvailableMetrics() {
 		page += fmt.Sprintf("<h1>	%s</h1>", n)
 	}
 	tmpl, _ := template.New("data").Parse("<h1>AVAILABLE METRICS</h1>{{range .}}<h3>{{ .}}</h3>{{end}}")
-	if err := tmpl.Execute(w, collector.Collector().GetAvailableMetrics()); err != nil {
+	if err := tmpl.Execute(w, collector2.Collector().GetAvailableMetrics()); err != nil {
 		return
 	}
 	w.Header().Set("content-type", "Content-Type: text/html; charset=utf-8")
@@ -267,18 +267,18 @@ func (h *handler) CheckSubnet(hh http.Handler) http.Handler {
 	return http.HandlerFunc(checkSubnetFn)
 }
 
-func (h *handler) collectMetric(metric collector.MetricRequest) ([]byte, error) {
-	c := collector.Collector()
+func (h *handler) collectMetric(metric collector2.MetricRequest) ([]byte, error) {
+	c := collector2.Collector()
 
 	// get metric value
 	var metricValue string
 	switch metric.MType {
-	case collector.Counter:
+	case collector2.Counter:
 		metricValue = strconv.Itoa(int(*metric.Delta))
-	case collector.Gauge:
+	case collector2.Gauge:
 		metricValue = strconv.FormatFloat(*metric.Value, 'f', 11, 64)
 	default:
-		return nil, collector.ErrNotImplemented
+		return nil, collector2.ErrNotImplemented
 	}
 
 	// save metric
@@ -311,11 +311,11 @@ func (h *handler) checkSubscription(w http.ResponseWriter, buf bytes.Buffer, hea
 
 func (h *handler) getStatusOnError(err error) int {
 	switch {
-	case errors.Is(err, collector.ErrBadRequest):
+	case errors.Is(err, collector2.ErrBadRequest):
 		return http.StatusBadRequest
-	case errors.Is(err, collector.ErrNotImplemented):
+	case errors.Is(err, collector2.ErrNotImplemented):
 		return http.StatusNotImplemented
-	case errors.Is(err, collector.ErrNotFound):
+	case errors.Is(err, collector2.ErrNotFound):
 		return http.StatusNotFound
 	default:
 		return http.StatusInternalServerError

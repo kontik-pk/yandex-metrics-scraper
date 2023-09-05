@@ -2,12 +2,12 @@ package router
 
 import (
 	"fmt"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/server/middlewares/compressor"
+	log "github.com/kontik-pk/yandex-metrics-scraper/internal/server/middlewares/logger"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/server/router/handlers"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/middlewares/compressor"
-	log "github.com/kontik-pk/yandex-metrics-scraper/internal/middlewares/logger"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/router/handlers"
 )
 
 func New(params flags.Params) (*chi.Mux, error) {

@@ -4,9 +4,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
 	"os"
-
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 )
 
 // Restore - a method for restoring metrics state from file.

@@ -4,9 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
 	"time"
-
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 )
 
 // Restore - a method for restoring metrics state from DB.

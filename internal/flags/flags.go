@@ -10,6 +10,7 @@ import (
 
 const (
 	defaultAddr            string = "127.0.0.1:8080"
+	defaultGrpcAddr        string = "127.0.0.1:3200"
 	defaultReportInterval  int    = 5
 	defaultPollInterval    int    = 1
 	defaultStoreInterval   int    = 15
@@ -62,6 +63,15 @@ func WithAddr() Option {
 		flag.StringVar(&p.FlagRunAddr, "a", p.FlagRunAddr, "address and port to run server")
 		if envRunAddr := os.Getenv("ADDRESS"); envRunAddr != "" {
 			p.FlagRunAddr = envRunAddr
+		}
+	}
+}
+
+func WithGrpcAddr() Option {
+	return func(p *Params) {
+		flag.StringVar(&p.GrpcRunAddr, "ga", p.GrpcRunAddr, "address and port to run gRPC server")
+		if envRunAddr := os.Getenv("GRPC_ADDRESS"); envRunAddr != "" {
+			p.GrpcRunAddr = envRunAddr
 		}
 	}
 }
@@ -135,6 +145,17 @@ func WithTLSKeyPath() Option {
 	}
 }
 
+func WithGrpc() Option {
+	return func(p *Params) {
+		flag.BoolVar(&p.DisableGrpc, "disable-grpc", p.DisableGrpc, "turn off grpc")
+		if disableGrpc := os.Getenv("DISABLE_GRPC"); disableGrpc != "" {
+			if v, err := strconv.ParseBool(disableGrpc); err != nil {
+				p.DisableGrpc = v
+			}
+		}
+	}
+}
+
 func WithConfig() Option {
 	return func(p *Params) {
 		var configPath string
@@ -171,6 +192,8 @@ func Init(opts ...Option) *Params {
 		StoreInterval:   defaultStoreInterval,
 		FileStoragePath: defaultFileStoragePath,
 		Restore:         defaultRestore,
+		GrpcRunAddr:     defaultGrpcAddr,
+		DisableGrpc:     true,
 	}
 
 	for _, opt := range opts {
@@ -182,15 +205,17 @@ func Init(opts ...Option) *Params {
 
 // Params is a struct for storing run parameters
 type Params struct {
-	FlagRunAddr     string `json:"address"`         // address and port to run server
 	DatabaseAddress string `json:"database_dsn"`    // database address
 	ReportInterval  int    `json:"report_interval"` // time interval for sending metrics to the server
 	PollInterval    int    `json:"poll_interval"`   // time interval for capturing metrics
 	StoreInterval   int    `json:"store_interval"`  // time interval for saving metrics in the db/file
 	FileStoragePath string `json:"store_file"`      // path for file to store metrics
 	Restore         bool   `json:"restore"`         // is need to restore metrics from db/file
+	FlagRunAddr     string `json:"address"`         // address and port to run server
+	TrustedSubnet   string `json:"trusted_subnet"`  // trusted subnet
 	Key             string `json:"hash_key"`        // key for using hash subscription
 	RateLimit       int    `json:"rate_limit"`      // rate limit for querying server
 	CryptoKeyPath   string `json:"crypto_key"`      // tls key path
-	TrustedSubnet   string `json:"trusted_subnet"`  // trusted subnet
+	GrpcRunAddr     string `json:"grpc_address"`    // grpc address and port to run server
+	DisableGrpc     bool   `json:"disable_grpc"`    // disable grpc
 }

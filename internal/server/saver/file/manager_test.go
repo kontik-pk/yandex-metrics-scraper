@@ -2,10 +2,10 @@ package file
 
 import (
 	"context"
+	collector2 "github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
 	"os"
 	"testing"
 
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,36 +13,36 @@ func TestManager_Restore(t *testing.T) {
 	testCases := []struct {
 		name            string
 		fileContent     string
-		expectedMetrics []collector.StoredMetric
+		expectedMetrics []collector2.StoredMetric
 	}{
 		{
 			name:        "positive: some metrics",
 			fileContent: `[{"id":"FreeMemory","type":"gauge","gauge_value":341491712,"text_value":"341491712.00000000000"},{"id":"TotalMemory","type":"gauge","gauge_value":34359738368,"text_value":"34359738368.00000000000"},{"id":"PollCount","type":"counter","counter_value":100500,"text_value":"100500"}]`,
-			expectedMetrics: []collector.StoredMetric{
+			expectedMetrics: []collector2.StoredMetric{
 				{
 					ID:         "FreeMemory",
 					MType:      "gauge",
-					GaugeValue: collector.PtrFloat64(341491712),
-					TextValue:  collector.PtrString("341491712.00000000000"),
+					GaugeValue: collector2.PtrFloat64(341491712),
+					TextValue:  collector2.PtrString("341491712.00000000000"),
 				},
 				{
 					ID:         "TotalMemory",
 					MType:      "gauge",
-					GaugeValue: collector.PtrFloat64(34359738368),
-					TextValue:  collector.PtrString("34359738368.00000000000"),
+					GaugeValue: collector2.PtrFloat64(34359738368),
+					TextValue:  collector2.PtrString("34359738368.00000000000"),
 				},
 				{
 					ID:           "PollCount",
 					MType:        "counter",
-					CounterValue: collector.PtrInt64(100500),
-					TextValue:    collector.PtrString("100500"),
+					CounterValue: collector2.PtrInt64(100500),
+					TextValue:    collector2.PtrString("100500"),
 				},
 			},
 		},
 		{
 			name:            "positive: some metrics",
 			fileContent:     ``,
-			expectedMetrics: []collector.StoredMetric(nil),
+			expectedMetrics: []collector2.StoredMetric(nil),
 		},
 	}
 	for _, tt := range testCases {
@@ -66,29 +66,29 @@ func TestManager_Restore(t *testing.T) {
 func TestManager_Save(t *testing.T) {
 	testCases := []struct {
 		name                string
-		metrics             []collector.StoredMetric
+		metrics             []collector2.StoredMetric
 		expectedFileContent string
 	}{
 		{
 			name: "positive",
-			metrics: []collector.StoredMetric{
+			metrics: []collector2.StoredMetric{
 				{
 					ID:         "FreeMemory",
 					MType:      "gauge",
-					GaugeValue: collector.PtrFloat64(341491712),
-					TextValue:  collector.PtrString("341491712.00000000000"),
+					GaugeValue: collector2.PtrFloat64(341491712),
+					TextValue:  collector2.PtrString("341491712.00000000000"),
 				},
 				{
 					ID:         "TotalMemory",
 					MType:      "gauge",
-					GaugeValue: collector.PtrFloat64(34359738368),
-					TextValue:  collector.PtrString("34359738368.00000000000"),
+					GaugeValue: collector2.PtrFloat64(34359738368),
+					TextValue:  collector2.PtrString("34359738368.00000000000"),
 				},
 				{
 					ID:           "PollCount",
 					MType:        "counter",
-					CounterValue: collector.PtrInt64(100500),
-					TextValue:    collector.PtrString("100500"),
+					CounterValue: collector2.PtrInt64(100500),
+					TextValue:    collector2.PtrString("100500"),
 				},
 			},
 			expectedFileContent: `[{"id":"FreeMemory","type":"gauge","gauge_value":341491712,"text_value":"341491712.00000000000"},{"id":"TotalMemory","type":"gauge","gauge_value":34359738368,"text_value":"34359738368.00000000000"},{"id":"PollCount","type":"counter","counter_value":100500,"text_value":"100500"}]
@@ -96,7 +96,7 @@ func TestManager_Save(t *testing.T) {
 		},
 		{
 			name:                "positive: no metrics",
-			metrics:             []collector.StoredMetric{},
+			metrics:             []collector2.StoredMetric{},
 			expectedFileContent: "[]\n",
 		},
 	}

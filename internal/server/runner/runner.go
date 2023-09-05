@@ -1,9 +1,18 @@
-package server
+package runner
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	collector2 "github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
+	grpc2 "github.com/kontik-pk/yandex-metrics-scraper/internal/server/grpc"
+	log "github.com/kontik-pk/yandex-metrics-scraper/internal/server/middlewares/logger"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/server/router/router"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/server/saver/database"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/server/saver/file"
+	pb "github.com/kontik-pk/yandex-metrics-scraper/proto"
+	"google.golang.org/grpc"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -11,12 +20,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
-	log "github.com/kontik-pk/yandex-metrics-scraper/internal/middlewares/logger"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/router/router"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/database"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/saver/file"
 	"go.uber.org/zap"
 )
 
@@ -33,8 +37,10 @@ type Runner struct {
 	isRestore       bool
 	storeInterval   int
 	tlsKey          string
-	appSrv          server
-	pprofSrv        server
+	appSrv          httpServer
+	pprofSrv        httpServer
+	grpcServer      grpcServer
+	listener        listener
 	logger          *zap.SugaredLogger
 	signals         chan os.Signal
 }
@@ -61,7 +67,8 @@ func New(params *flags.Params) *Runner {
 	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
-	return &Runner{
+
+	runner := &Runner{
 		saver:           saver,
 		metricsInterval: time.Duration(params.StoreInterval),
 		isRestore:       params.Restore,
@@ -78,6 +85,22 @@ func New(params *flags.Params) *Runner {
 		signals: sigs,
 		logger:  &log.SugarLogger,
 	}
+	if !params.DisableGrpc {
+		// create gRPC server
+		s := grpc.NewServer()
+		// register grpc server
+		pb.RegisterMetricsServer(s, &grpc2.MetricsServer{})
+
+		listen, err := net.Listen("tcp", params.GrpcRunAddr)
+		if err != nil {
+			log.SugarLogger.Fatalw(err.Error(), "event", "start listen tcp")
+		}
+
+		runner.listener = listen
+		runner.grpcServer = s
+	}
+
+	return runner
 }
 
 func (r *Runner) Run(ctx context.Context) {
@@ -89,7 +112,7 @@ func (r *Runner) Run(ctx context.Context) {
 		if err != nil {
 			r.logger.Error(err.Error(), "restore error")
 		}
-		collector.Collector().Metrics = metrics
+		collector2.Collector().Metrics = metrics
 		r.logger.Info("metrics restored")
 	}
 
@@ -99,7 +122,7 @@ func (r *Runner) Run(ctx context.Context) {
 	// pprof
 	go func() {
 		if err := r.pprofSrv.ListenAndServe(); err != nil {
-			r.logger.Fatalw(err.Error(), "pprof", "start pprof server")
+			r.logger.Fatalw(err.Error(), "pprof", "start pprof httpServer")
 		}
 	}()
 
@@ -108,22 +131,35 @@ func (r *Runner) Run(ctx context.Context) {
 		sig := <-r.signals
 		r.logger.Info(fmt.Sprintf("got signal: %s", sig.String()))
 		// save metrics
-		if err := r.saver.Save(ctx, collector.Collector().Metrics); err != nil {
+		if err := r.saver.Save(ctx, collector2.Collector().Metrics); err != nil {
 			r.logger.Error(err.Error(), "save error")
 		} else {
 			r.logger.Info("metrics was successfully saved")
 		}
-		// gracefull shutdown
+		// gracefully shutdown
 		if err := r.appSrv.Shutdown(ctx); err != nil {
-			r.logger.Error(fmt.Sprintf("error while server shutdown: %s", err.Error()), "server shutdown error")
+			r.logger.Error(fmt.Sprintf("error while httpServer shutdown: %s", err.Error()), "httpServer shutdown error")
 			return
 		}
 	}()
 
-	// run server
-	r.logger.Info("Starting server")
+	// run grpc server
+	if r.grpcServer != nil {
+		go func() {
+			r.logger.Info("Starting gRPC httpServer")
+
+			if err := r.grpcServer.Serve(r.listener); err != nil {
+				r.logger.Fatalw(err.Error(), "event", "serving grpc httpServer")
+			}
+			defer r.grpcServer.GracefulStop()
+			defer r.listener.Close()
+		}()
+	}
+
+	// run http httpServer
+	r.logger.Info("Starting http httpServer")
 	if err := r.appSrv.ListenAndServe(); err != nil {
-		r.logger.Fatalw(err.Error(), "event", "start server")
+		r.logger.Fatalw(err.Error(), "event", "start http httpServer")
 	}
 }
 
@@ -134,7 +170,7 @@ func (r *Runner) saveMetrics(ctx context.Context, interval int) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := r.saver.Save(ctx, collector.Collector().Metrics); err != nil {
+			if err := r.saver.Save(ctx, collector2.Collector().Metrics); err != nil {
 				r.logger.Error(err.Error(), "save error")
 			}
 		}
@@ -156,12 +192,25 @@ func initSaver(params *flags.Params) (saver, error) {
 
 //go:generate mockery --inpackage --disable-version-string --filename saver_mock.go --name saver
 type saver interface {
-	Restore(ctx context.Context) ([]collector.StoredMetric, error)
-	Save(ctx context.Context, metrics []collector.StoredMetric) error
+	Restore(ctx context.Context) ([]collector2.StoredMetric, error)
+	Save(ctx context.Context, metrics []collector2.StoredMetric) error
 }
 
-//go:generate mockery --inpackage --disable-version-string --filename server_mock.go --name server
-type server interface {
+//go:generate mockery --inpackage --disable-version-string --filename http_server_mock.go --name httpServer
+type httpServer interface {
 	ListenAndServe() error
 	Shutdown(ctx context.Context) error
+}
+
+//go:generate mockery --inpackage --disable-version-string --filename grpc_server_mock.go --name grpcServer
+type grpcServer interface {
+	Serve(lis net.Listener) error
+	GracefulStop()
+}
+
+//go:generate mockery --inpackage --disable-version-string --filename listener_mock.go --name listener
+type listener interface {
+	Close() error
+	Accept() (net.Conn, error)
+	Addr() net.Addr
 }

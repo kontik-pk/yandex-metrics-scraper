@@ -1,9 +1,8 @@
 package aggregator
 
 import (
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
 	"testing"
-
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 )
 
 func BenchmarkAggregator_AggregateGopsutilMetrics(b *testing.B) {

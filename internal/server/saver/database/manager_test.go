@@ -2,10 +2,10 @@ package database
 
 import (
 	"context"
+	collector2 "github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -13,21 +13,21 @@ func TestManager_Restore(t *testing.T) {
 	testCases := []struct {
 		name     string
 		rows     *sqlmock.Rows
-		expected []collector.StoredMetric
+		expected []collector2.StoredMetric
 	}{
 		{
 			name:     "positive: no saved metrics",
 			rows:     sqlmock.NewRows([]string{"id", "mtype", "delta", "mvalue"}),
-			expected: []collector.StoredMetric(nil),
+			expected: []collector2.StoredMetric(nil),
 		},
 		{
 			name: "positive: one saved metric",
 			rows: sqlmock.NewRows([]string{"id", "mtype", "delta", "mvalue"}).AddRow("metricName", "counter", 5, nil),
-			expected: []collector.StoredMetric{
+			expected: []collector2.StoredMetric{
 				{
 					ID:           "metricName",
 					MType:        "counter",
-					CounterValue: collector.PtrInt64(5),
+					CounterValue: collector2.PtrInt64(5),
 				},
 			},
 		},
@@ -36,16 +36,16 @@ func TestManager_Restore(t *testing.T) {
 			rows: sqlmock.NewRows([]string{"id", "mtype", "delta", "mvalue"}).
 				AddRow("metricName", "counter", 5, nil).
 				AddRow("otherMetricName", "gauge", nil, 10.502),
-			expected: []collector.StoredMetric{
+			expected: []collector2.StoredMetric{
 				{
 					ID:           "metricName",
 					MType:        "counter",
-					CounterValue: collector.PtrInt64(5),
+					CounterValue: collector2.PtrInt64(5),
 				},
 				{
 					ID:         "otherMetricName",
 					MType:      "gauge",
-					GaugeValue: collector.PtrFloat64(10.502),
+					GaugeValue: collector2.PtrFloat64(10.502),
 				},
 			},
 		},
@@ -72,20 +72,20 @@ func TestManager_Restore(t *testing.T) {
 func TestManager_Save(t *testing.T) {
 	testCases := []struct {
 		name    string
-		metrics []collector.StoredMetric
+		metrics []collector2.StoredMetric
 	}{
 		{
 			name: "positive: store gauge",
-			metrics: []collector.StoredMetric{
+			metrics: []collector2.StoredMetric{
 				{
 					ID:         "metricName",
 					MType:      "gauge",
-					GaugeValue: collector.PtrFloat64(10.502),
+					GaugeValue: collector2.PtrFloat64(10.502),
 				},
 				{
 					ID:           "otherMetricName",
 					MType:        "counter",
-					CounterValue: collector.PtrInt64(10),
+					CounterValue: collector2.PtrInt64(10),
 				},
 			},
 		},

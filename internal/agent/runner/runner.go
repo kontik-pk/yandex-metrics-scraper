@@ -1,17 +1,17 @@
-package agent
+package runner
 
 import (
 	"context"
 	"fmt"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
+	"github.com/kontik-pk/yandex-metrics-scraper/internal/agent/metrics"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
 	agent2 "github.com/kontik-pk/yandex-metrics-scraper/internal/agent"
-	"github.com/kontik-pk/yandex-metrics-scraper/internal/collector"
 	"github.com/kontik-pk/yandex-metrics-scraper/internal/flags"
-	aggregator "github.com/kontik-pk/yandex-metrics-scraper/internal/metrics"
 	"go.uber.org/zap"
 )
 
