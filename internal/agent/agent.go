@@ -48,6 +48,17 @@ func (a *Agent) CollectMetrics(ctx context.Context) {
 func (a *Agent) SendMetricsLoop(ctx context.Context) (err error) {
 	numRequests := make(chan struct{}, a.params.RateLimit)
 	reportTicker := time.NewTicker(time.Duration(a.params.ReportInterval) * time.Second)
+
+	if a.params.GrpcRunAddr != "" {
+		// устанавливаем соединение с сервером
+		conn, err := grpc.Dial(a.params.GrpcRunAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		a.grpcMetricsClient = pb.NewMetricsClient(conn)
+	}
+
 	// send metrics by timer
 	for {
 		select {
@@ -86,15 +97,6 @@ func (a *Agent) SendMetrics(ctx context.Context) error {
 }
 
 func (a *Agent) sendGrpc(ctx context.Context) error {
-	// устанавливаем соединение с сервером
-	conn, err := grpc.Dial(a.params.GrpcRunAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	c := pb.NewMetricsClient(conn)
-
 	for _, v := range collector2.Collector().Metrics {
 		request := pb.MetricRequest{
 			ID:    v.ID,
@@ -107,7 +109,7 @@ func (a *Agent) sendGrpc(ctx context.Context) error {
 			request.Delta = *v.CounterValue
 		}
 
-		if _, err = c.SaveMetricFromJSON(ctx, &request); err != nil {
+		if _, err := a.grpcMetricsClient.SaveMetricFromJSON(ctx, &request); err != nil {
 			return errors.Errorf("error while sending metric to grpc server: %s", err.Error())
 
 		}
@@ -190,14 +192,16 @@ func New(params *flags.Params, aggregator *aggregator.Aggregator, log *zap.Sugar
 		}
 		agent.cryptoKey = publicKey.(*rsa.PublicKey)
 	}
+
 	return agent, nil
 }
 
 // Agent is a struct for capturing and sending metrics to the server.
 type Agent struct {
-	params     *flags.Params
-	aggregator *aggregator.Aggregator
-	cryptoKey  *rsa.PublicKey
-	log        *zap.SugaredLogger
-	client     *resty.Client
+	params            *flags.Params
+	aggregator        *aggregator.Aggregator
+	cryptoKey         *rsa.PublicKey
+	log               *zap.SugaredLogger
+	client            *resty.Client
+	grpcMetricsClient pb.MetricsClient
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	collector2 "github.com/kontik-pk/yandex-metrics-scraper/internal/agent/collector"
 	pb "github.com/kontik-pk/yandex-metrics-scraper/proto"
+	"google.golang.org/grpc/status"
 	"log"
 	"strconv"
 )
@@ -31,15 +32,13 @@ func (s *MetricsServer) SaveMetricFromJSON(ctx context.Context, in *pb.MetricReq
 	default:
 		return &pb.SaveMetricResponse{
 			ResultJSON: nil,
-			Error:      collector2.ErrNotImplemented.Error(),
-		}, collector2.ErrNotImplemented
+		}, status.Error(1, collector2.ErrNotImplemented.Error())
 	}
 
 	if err := c.Collect(metric, metricValue); err != nil {
 		return &pb.SaveMetricResponse{
 			ResultJSON: nil,
-			Error:      err.Error(),
-		}, err
+		}, status.Error(1, err.Error())
 	}
 
 	// get saved metric in JSON format for response
@@ -47,12 +46,10 @@ func (s *MetricsServer) SaveMetricFromJSON(ctx context.Context, in *pb.MetricReq
 	if err != nil {
 		return &pb.SaveMetricResponse{
 			ResultJSON: nil,
-			Error:      err.Error(),
-		}, err
+		}, status.Error(1, err.Error())
 	}
 	log.Println(string(resultJSON))
 	return &pb.SaveMetricResponse{
 		ResultJSON: resultJSON,
-		Error:      "",
 	}, nil
 }

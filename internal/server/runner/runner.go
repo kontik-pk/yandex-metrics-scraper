@@ -149,7 +149,7 @@ func (r *Runner) Run(ctx context.Context) {
 			r.logger.Info("Starting gRPC httpServer")
 
 			if err := r.grpcServer.Serve(r.listener); err != nil {
-				r.logger.Fatalw(err.Error(), "event", "serving grpc httpServer")
+				r.logger.Errorf("error while serving grpc server: %s", err.Error())
 			}
 			defer r.grpcServer.GracefulStop()
 			defer r.listener.Close()
