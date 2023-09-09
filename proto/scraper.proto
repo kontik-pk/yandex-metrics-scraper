@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package scraper;
+
+option go_package = "yandex-metrics-scraper/proto";
+
+message MetricRequest {
+  string ID = 1;
+  string MType = 2;
+  int64 Delta = 3;
+  double Value = 4;
+}
+
+message SaveMetricResponse {
+  bytes resultJSON = 1;
+}
+
+service Metrics {
+  rpc SaveMetricFromJSON(MetricRequest) returns (SaveMetricResponse);
+}
